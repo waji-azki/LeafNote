@@ -210,6 +210,11 @@
   .flowNode.f-title.frame-thin{border-width:0.8px; font-weight:500;}
   .flowNode.f-title.frame-underline{border:none; border-bottom:1.8px solid #1a1a1a; border-radius:0; background:transparent; padding-left:1px;}
   .flowNodeWrap{position:absolute;}
+  /* 縦の矢印につく、左右に動かすためのつまみ。編集中だけのもので、印刷には出ない。 */
+  .arrowHandle{position:absolute; width:11px; height:11px; border-radius:50%; background:var(--surface);
+    border:1.6px solid var(--accent); transform:translate(-50%,-50%); cursor:ew-resize; touch-action:none;
+    z-index:3; box-shadow:0 1px 2px rgba(0,0,0,.25);}
+  .arrowHandle.dragging{background:var(--accent);}
   .nodeBtn{position:absolute; width:19px; height:19px; border-radius:50%; background:var(--surface); border:1.3px solid var(--ink); color:var(--ink); display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; line-height:1; cursor:pointer; z-index:2; user-select:none; touch-action:none; padding:0;}
   /* the selected box's controls, in a small bar clear of the box's own edges so that
      swiping from the box is never intercepted by a button */
@@ -1326,7 +1331,7 @@
         '<div class="zoombtns"><button class="zoombtn" onclick="App.toggleHint()" title="操作のヒント">?</button><button class="zoombtn" onclick="App.addDivider()" title="区切り線を追加">―</button><button class="zoombtn" onclick="App.flowZoom(-1)">'+ICONS.zout+'</button><button class="zoombtn" onclick="App.flowZoom(1)">'+ICONS.zin+'</button></div></div>' +
       // Shown the first time only — after that the "?" button brings it back, so the
       // paper isn't permanently squeezed by a reference card.
-      '<div class="canvasHint" id="canvasHint"'+(state.settings.hintSeen ? ' hidden' : '')+'>↓スワイプで次の工程(同じ箱から2回目以降は横並び)・斜め横スワイプで枝分かれ・箱や補足をタップすると上に H(枠) ✥(移動) +(補足) ✕(削除)・見出しはダブルタップで枠変更・2本指で拡大/縮小と紙の移動<button class="hintClose" onclick="App.toggleHint()" title="閉じる">✕</button></div>' +
+      '<div class="canvasHint" id="canvasHint"'+(state.settings.hintSeen ? ' hidden' : '')+'>↓スワイプで次の工程(同じ箱から2回目以降は横並び)・斜め横スワイプで枝分かれ・箱や補足をタップすると上に H(枠) ✥(移動) +(補足) ✕(削除)・見出しはダブルタップで枠変更・2本指で拡大/縮小と紙の移動・矢印は○を左右にドラッグで位置調整<button class="hintClose" onclick="App.toggleHint()" title="閉じる">✕</button></div>' +
       '<div class="canvasViewportOuter"><div class="canvasViewport" id="canvasViewport"><div class="canvasWorld" id="canvasWorld"></div></div></div>' +
       '<button class="canvasFab" onclick="App.addFreeNode()">'+ICONS.plus+'</button>' +
       '</div>';
@@ -1442,6 +1447,7 @@
       '<marker id="annoArrowhead" markerWidth="7" markerHeight="7" refX="5" refY="2.5" orient="auto"><path d="M0,0 L5,2.5 L0,5 Z" fill="#8a8677"/></marker>' +
       '</defs>';
     var labels = '';
+    var handles = '';   // 矢印を左右に動かすためのつまみ(画面だけ・印刷には出ない)
     edges.forEach(function(e){
       var a = nodeById(e.from), b = nodeById(e.to);
       if(!a||!b) return;
@@ -1466,7 +1472,15 @@
         p1 = rectEdgePoint(ra.x,ra.y,ra.w,ra.h, rb.x+rb.w/2, rb.y+rb.h/2);
         p2 = rectEdgePoint(rb.x,rb.y,rb.w,rb.h, ra.x+ra.w/2, ra.y+ra.h/2);
       }
-      svg += '<line x1="'+p1.x+'" y1="'+p1.y+'" x2="'+p2.x+'" y2="'+p2.y+'" stroke="transparent" stroke-width="16" style="pointer-events:auto;cursor:pointer;" onclick="App.editEdge(\''+e.id+'\')"/>';
+      // 縦の矢印は掴んで左右に動かせる(補足の位置に合わせたいときのため)。
+      // 動かさずに離したときは、今までどおりラベルの編集になる。
+      if(e.vertical){
+        svg += '<line x1="'+p1.x+'" y1="'+p1.y+'" x2="'+p2.x+'" y2="'+p2.y+'" stroke="transparent" stroke-width="16" style="pointer-events:auto;cursor:ew-resize;" data-edgehit="'+e.id+'"/>';
+        var hy = (p1.y+p2.y)/2;
+        handles += '<div class="arrowHandle" data-edgehandle="'+e.id+'" style="left:'+p1.x+'px; top:'+hy+'px;" title="左右にドラッグして矢印の位置を調整"></div>';
+      } else {
+        svg += '<line x1="'+p1.x+'" y1="'+p1.y+'" x2="'+p2.x+'" y2="'+p2.y+'" stroke="transparent" stroke-width="16" style="pointer-events:auto;cursor:pointer;" onclick="App.editEdge(\''+e.id+'\')"/>';
+      }
       svg += '<line x1="'+p1.x+'" y1="'+p1.y+'" x2="'+p2.x+'" y2="'+p2.y+'" stroke="#555" stroke-width="2" marker-end="url(#arrowhead)" style="pointer-events:none;"/>';
       if(e.label){
         var my=(p1.y+p2.y)/2;
@@ -1550,7 +1564,7 @@
         '<div class="dividerHandle" data-handle="'+d.id+'" style="left:'+(dx+dw)+'px; top:'+dy+'px;"></div>';
     }).join('');
 
-    world.innerHTML = sheets.html + svg + nodesHtml + annoHtml + divHtml + labels;
+    world.innerHTML = sheets.html + svg + nodesHtml + annoHtml + divHtml + labels + handles;
 
     nodes.forEach(function(n){
       var el = world.querySelector('.flowNode[data-id="'+n.id+'"]');
@@ -1575,6 +1589,13 @@
         var amh = world.querySelector('.moveHandle[data-amove="'+a.id+'"]');
         if(amh) amh.addEventListener('pointerdown', function(ev){ onAnnoMoveHandleDown(ev, a); });
       });
+    });
+    edges.forEach(function(e){
+      if(!e.vertical) return;
+      var hit = world.querySelector('[data-edgehit="'+e.id+'"]');
+      if(hit) hit.addEventListener('pointerdown', function(ev){ onEdgeAnchorDown(ev, e); });
+      var grip = world.querySelector('[data-edgehandle="'+e.id+'"]');
+      if(grip) grip.addEventListener('pointerdown', function(ev){ onEdgeAnchorDown(ev, e); });
     });
     dividers.forEach(function(d){
       var del = world.querySelector('.flowDivider[data-id="'+d.id+'"]');
@@ -1890,6 +1911,50 @@
       if(ghost && ghost.parentElement) ghost.parentElement.removeChild(ghost);
     }
     document.addEventListener('pointermove', move);
+    document.addEventListener('pointerup', up, {once:true});
+  }
+
+  // 矢印を左右に動かす。動かさずに離したらラベルの編集(今までどおり)。
+  // 動かせる範囲は上下の箱が重なっている幅の中だけ — それを外れると矢印が箱から離れてしまうため。
+  function onEdgeAnchorDown(ev, e){
+    ev.preventDefault(); ev.stopPropagation();
+    var a = nodeById(e.from), b = nodeById(e.to);
+    if(!a || !b) return;
+    var startX = ev.clientX;
+    var orig = (typeof e.anchorX === 'number') ? e.anchorX : (a.x + nodeW(a)/2);
+    var moved = false;
+    var grip = document.querySelector('[data-edgehandle="'+e.id+'"]');
+    if(grip) grip.classList.add('dragging');
+    function range(){
+      var aw = nodeW(a), bw = nodeW(b);
+      var lo = Math.max(a.x, b.x) + 2, hi = Math.min(a.x+aw, b.x+bw) - 2;
+      if(lo > hi){ var mid = (Math.max(a.x,b.x) + Math.min(a.x+aw, b.x+bw))/2; lo = hi = mid; }
+      return [lo, hi];
+    }
+    function mv(e2){
+      if(gestureActive){ e.anchorX = orig; cleanup(); renderCanvas(); return; }
+      var dx = e2.clientX - startX;
+      if(!moved && Math.abs(dx) > 6) moved = true;
+      if(!moved) return;
+      var r = range();
+      e.anchorX = LN.clamp(orig + pxToMm(dx/FE.zoom), r[0], r[1]);
+      renderCanvas();
+      var g = document.querySelector('[data-edgehandle="'+e.id+'"]');
+      if(g) g.classList.add('dragging');
+    }
+    function up(){
+      cleanup();
+      if(gestureActive) return;
+      if(moved){ persistFlow(); renderCanvas(); }
+      else { editEdge(e.id); }
+    }
+    function cleanup(){
+      document.removeEventListener('pointermove', mv);
+      document.removeEventListener('pointerup', up);
+      var g = document.querySelector('[data-edgehandle="'+e.id+'"]');
+      if(g) g.classList.remove('dragging');
+    }
+    document.addEventListener('pointermove', mv);
     document.addEventListener('pointerup', up, {once:true});
   }
 
