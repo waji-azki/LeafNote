@@ -1170,6 +1170,9 @@
   var HOLD_MS = 220, MOVE_TH = 13;
 
   var FE = null; // {note, zoom, panX, panY, editingNodeId}
+  // 指が2本乗っているあいだは「紙をつまんでいる」状態。箱の移動やスワイプ作成は
+  // いったん止めて、拡大と移動だけを受け付ける。指が全部離れるまで戻さない。
+  var gestureActive = false;
 
   function mmToPx(mm){ return mm*BASE_PX; }
   function pxToMm(px){ return px/BASE_PX; }
@@ -1295,6 +1298,7 @@
   function openFlowEditor(id){
     var n = state.notes.find(function(x){return x.id===id;});
     if(!n){ App.goTab('list'); return; }
+    if(FE && FE.releaseGestureHooks) FE.releaseGestureHooks();
     FE = {note: JSON.parse(JSON.stringify(n)), zoom:1, panX:0, panY:0, editingNodeId:null, selectedNodeId:null, selectedAnnoId:null, lastTap:null};
     if(!FE.note.nodes) FE.note.nodes=[];
     if(!FE.note.edges) FE.note.edges=[];
@@ -1321,7 +1325,7 @@
         '<div class="zoombtns"><button class="zoombtn" onclick="App.toggleHint()" title="操作のヒント">?</button><button class="zoombtn" onclick="App.addDivider()" title="区切り線を追加">―</button><button class="zoombtn" onclick="App.flowZoom(-1)">'+ICONS.zout+'</button><button class="zoombtn" onclick="App.flowZoom(1)">'+ICONS.zin+'</button></div></div>' +
       // Shown the first time only — after that the "?" button brings it back, so the
       // paper isn't permanently squeezed by a reference card.
-      '<div class="canvasHint" id="canvasHint"'+(state.settings.hintSeen ? ' hidden' : '')+'>↓スワイプで次の工程(同じ箱から2回目以降は横並び)・斜め横スワイプで枝分かれ・箱や補足をタップすると上に H(枠) ✥(移動) +(補足) ✕(削除)・見出しはダブルタップで枠変更<button class="hintClose" onclick="App.toggleHint()" title="閉じる">✕</button></div>' +
+      '<div class="canvasHint" id="canvasHint"'+(state.settings.hintSeen ? ' hidden' : '')+'>↓スワイプで次の工程(同じ箱から2回目以降は横並び)・斜め横スワイプで枝分かれ・箱や補足をタップすると上に H(枠) ✥(移動) +(補足) ✕(削除)・見出しはダブルタップで枠変更・2本指で拡大/縮小と紙の移動<button class="hintClose" onclick="App.toggleHint()" title="閉じる">✕</button></div>' +
       '<div class="canvasViewportOuter"><div class="canvasViewport" id="canvasViewport"><div class="canvasWorld" id="canvasWorld"></div></div></div>' +
       '<button class="canvasFab" onclick="App.addFreeNode()">'+ICONS.plus+'</button>' +
       '</div>';
@@ -1668,6 +1672,7 @@
     ev.preventDefault(); ev.stopPropagation();
     var sx=ev.clientX, sy=ev.clientY, ox=node.x, oy=node.y;
     function mv(e2){
+      if(gestureActive){ node.x=ox; node.y=oy; renderCanvas(); up(); return; }
       node.x = LN.clamp(ox + pxToMm((e2.clientX-sx)/FE.zoom), 0, Math.max(0, fullWidthMm()-nodeW(node)));
       node.y = Math.max(0, oy + pxToMm((e2.clientY-sy)/FE.zoom));
       renderCanvas();
@@ -1685,6 +1690,7 @@
     ev.preventDefault(); ev.stopPropagation();
     var sx=ev.clientX, sy=ev.clientY, ox=anno.x, oy=anno.y;
     function mv(e2){
+      if(gestureActive){ anno.x=ox; anno.y=oy; renderCanvas(); up(); return; }
       anno.x = LN.clamp(ox + pxToMm((e2.clientX-sx)/FE.zoom), 0, Math.max(0, fullWidthMm()-14));
       anno.y = Math.max(0, oy + pxToMm((e2.clientY-sy)/FE.zoom));
       renderCanvas();
@@ -1768,6 +1774,12 @@
     // deleted work by accident. Deleting is an explicit ✕ on the selected box instead.
 
     function move(e2){
+      // 2本目の指が乗ったら、ここで始まっていた移動やスワイプは取り消す
+      if(gestureActive){
+        if(mode==='drag'){ node.x=origX; node.y=origY; renderCanvas(); }
+        cleanup();
+        return;
+      }
       var dx=e2.clientX-startX, dy=e2.clientY-startY;
       var dist=Math.hypot(dx,dy);
       if(!mode){
@@ -1794,6 +1806,7 @@
     }
     function up(e2){
       cleanup();
+      if(gestureActive) return;   // つまんでいた指を離しただけ
       if(mode==='swipe'){
         var wp = viewportToWorldMm(e2.clientX, e2.clientY);
         var target = findNodeAt(wp.x, wp.y, node.id);
@@ -1888,14 +1901,86 @@
       if(ev.target && ev.target.closest && ev.target.closest('textarea,input')) return; // 文字の選択は邪魔しない
       if(ev.cancelable) ev.preventDefault();
     }, {passive:false});
+    // ---- 2本指の操作(つまんで拡大・縮小、2本指で紙を動かす) ----
+    // 指の出入りは capture で先に拾う。箱の上から始めた指でも、2本目が乗った時点で
+    // 「紙をつまむ」操作に切り替わるようにするため。
+    var pts = {};          // pointerId -> {x,y}
+    var gz = null;         // つまみ始めたときの指の間隔・中点・そのときの拡大率と位置
+    function ptCount(){ return Object.keys(pts).length; }
+
+    function startPinch(){
+      var ids = Object.keys(pts), a = pts[ids[0]], b = pts[ids[1]];
+      gz = {
+        d: Math.max(1, Math.hypot(a.x-b.x, a.y-b.y)),
+        mx: (a.x+b.x)/2, my: (a.y+b.y)/2,
+        zoom: FE.zoom, panX: FE.panX, panY: FE.panY
+      };
+      gestureActive = true;
+      panning = false;      // 1本指のパンとは同時に動かさない
+    }
+    function updatePinch(){
+      if(!gz || ptCount() < 2) return;
+      var ids = Object.keys(pts), a = pts[ids[0]], b = pts[ids[1]];
+      var d = Math.max(1, Math.hypot(a.x-b.x, a.y-b.y));
+      var mx = (a.x+b.x)/2, my = (a.y+b.y)/2;
+      var z = LN.clamp(gz.zoom * (d/gz.d), 0.5, 2.2);
+      var k = z / gz.zoom;
+      FE.zoom = z;
+      updateCanvasViewportWidth();     // 紙の幅が変わるので、先に編集エリアを合わせる
+      var vr = vp.getBoundingClientRect();
+      // つまみ始めた点の下にある紙の位置を動かさずに拡大し、そのうえで中点の移動分だけ紙を送る
+      var ax = gz.mx - vr.left, ay = gz.my - vr.top;
+      FE.panX = (gz.panX - ax)*k + ax + (mx - gz.mx);
+      FE.panY = (gz.panY - ay)*k + ay + (my - gz.my);
+      clampPan();
+      applyWorldTransform();
+    }
+    function endPinch(){
+      gz = null;
+      // 指が全部離れるまでは箱の操作を戻さない。先に離れた1本で
+      // 箱を動かしたり次の工程を作ったりしてしまわないようにするため。
+      if(ptCount() === 0) setTimeout(function(){ gestureActive = false; }, 60);
+    }
+
     vp.addEventListener('pointerdown', function(ev){
+      if(ev.pointerType === 'mouse' && ev.buttons === 0) return;
+      // 新しく画面に触れた最初の1本(isPrimary)なら、そこが一連の操作の始まり。
+      // 前回の指を離したことを取りこぼしていても、ここで必ず元に戻るので、
+      // 「つまんだあと箱が操作できなくなる」状態に居残らない。
+      if(!gz && ev.isPrimary){ pts = {}; gestureActive = false; panning = false; }
+      pts[ev.pointerId] = {x:ev.clientX, y:ev.clientY};
+      if(ptCount() === 2) startPinch();
+    }, true);
+    function onDocMove(ev){
+      if(!pts[ev.pointerId]) return;
+      pts[ev.pointerId] = {x:ev.clientX, y:ev.clientY};
+      if(gz) updatePinch();
+    }
+    function onDocUp(ev){
+      if(!pts[ev.pointerId]) return;
+      delete pts[ev.pointerId];
+      if(ptCount() < 2) endPinch();
+    }
+    document.addEventListener('pointermove', onDocMove, true);
+    document.addEventListener('pointerup', onDocUp, true);
+    document.addEventListener('pointercancel', onDocUp, true);
+    // 編集画面を閉じたら、この画面ぶんの見張りも外す
+    FE.releaseGestureHooks = function(){
+      document.removeEventListener('pointermove', onDocMove, true);
+      document.removeEventListener('pointerup', onDocUp, true);
+      document.removeEventListener('pointercancel', onDocUp, true);
+      pts = {}; gz = null; gestureActive = false;
+    };
+
+    vp.addEventListener('pointerdown', function(ev){
+      if(gestureActive) return;
       if(ev.target.closest('.flowNode') || ev.target.closest('.flowArrowLabel') || ev.target.closest('.flowAnnotation') || ev.target.closest('.flowDivider') || ev.target.closest('.dividerHandle') || ev.target.closest('.nodeBtn')) return;
       // Touching bare paper deselects, which also puts the controls away.
       if(FE.selectedNodeId || FE.selectedAnnoId){ FE.selectedNodeId=null; FE.selectedAnnoId=null; renderCanvas(); }
       panning=true; sx=ev.clientX; sy=ev.clientY; ox=FE.panX; oy=FE.panY;
     });
     vp.addEventListener('pointermove', function(ev){
-      if(!panning) return;
+      if(!panning || gestureActive) return;
       FE.panX = ox + (ev.clientX-sx);
       FE.panY = oy + (ev.clientY-sy);
       // The sheet can't be dragged sideways out of view: the paper's width is the
@@ -2081,6 +2166,11 @@
     // Like the boxes: no long press. A tap opens the note for editing and leaves it
     // selected, and its own ✥ / ✕ handle the moving and deleting.
     function move(e2){
+      if(gestureActive){
+        if(moved){ anno.x=origX; anno.y=origY; renderCanvas(); }
+        cleanup();
+        return;
+      }
       var dx=e2.clientX-startX, dy=e2.clientY-startY;
       if(!moved && Math.hypot(dx,dy)>MOVE_TH){ moved=true; }
       if(moved){
@@ -2091,6 +2181,7 @@
     }
     function up(){
       cleanup();
+      if(gestureActive) return;
       if(moved){ persistFlow(); return; }
       FE.selectedAnnoId = anno.id;
       FE.selectedNodeId = null;
@@ -2138,6 +2229,7 @@
       }
     }, 650);
     function move(e2){
+      if(gestureActive){ clearTimeout(longTimer); if(moved){ div.x=origX; div.y=origY; renderCanvas(); } cleanup(); return; }
       var dx=e2.clientX-startX, dy=e2.clientY-startY;
       if(!moved && Math.hypot(dx,dy)>MOVE_TH){ moved=true; clearTimeout(longTimer); }
       if(moved){
@@ -2164,6 +2256,7 @@
     var startX=ev.clientX;
     var origW=dividerW(div);
     function move(e2){
+      if(gestureActive){ up(); return; }
       var dx=e2.clientX-startX;
       // Resizing by hand turns a full-width rule into one with its own width, and it
       // still can't run past the printable edge.
@@ -2183,7 +2276,7 @@
   window.App = window.App || {};
   Object.assign(window.App, {
     openFlowEditor: openFlowEditor,
-    closeEditor: function(){ FE=null; App.goTab('list'); },
+    closeEditor: function(){ if(FE && FE.releaseGestureHooks) FE.releaseGestureHooks(); FE=null; App.goTab('list'); },
     toggleHint: toggleHint,
     deleteNode: deleteNode,
     deleteAnnotation: deleteAnnotation,
