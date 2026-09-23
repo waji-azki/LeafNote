@@ -192,7 +192,8 @@
   .flowNode.f-plain{border-style:dashed; border-color:#9fb6cc; background:rgba(255,255,255,.35);}
   .flowNode.f-callout{border-color:#1a1a1a; background:#fff;}
   .flowNode.f-emph{border-width:1.8px; border-color:#1a1a1a; background:#fff; font-weight:700;}
-  .flowNode.f-title{border-color:#1a1a1a; background:#fff; font-weight:700; font-size:12px;}
+  /* 見出しの枠だけ角を落とす。工程の箱(角丸)と一目で見分けがつくように。 */
+  .flowNode.f-title{border-color:#1a1a1a; background:#fff; font-weight:700; font-size:12px; border-radius:0;}
   .flowNode.selected{outline:2px solid var(--accent); outline-offset:1px;}
   .flowNode textarea{width:100%; height:100%; border:none; background:none; resize:none; outline:none; font:inherit; color:inherit; padding:0;}
   .flowGhost{position:absolute; border:1.6px dashed var(--accent); border-radius:8px; background:var(--accent-soft); opacity:.85; pointer-events:none;}
@@ -2457,7 +2458,9 @@
       } else {
         frame = 'border:0.25mm solid #1a1a1a;';
       }
-      return '<div style="position:absolute; left:'+n.x+'mm; top:'+n.y+'mm; width:'+w+'mm; min-height:'+h+'mm; border-radius:1mm; padding:1mm 1.3mm; font-size:'+fontPt+'pt; line-height:1.28; overflow:hidden; '+frame+'">'+(LN.renderRichText(n.text||''))+'</div>';
+      // 見出しは角丸なし。工程の箱と見分けるための差なので、印刷でも同じにする。
+      var radius = (kind==='title') ? '0' : '1mm';
+      return '<div style="position:absolute; left:'+n.x+'mm; top:'+n.y+'mm; width:'+w+'mm; min-height:'+h+'mm; border-radius:'+radius+'; padding:1mm 1.3mm; font-size:'+fontPt+'pt; line-height:1.28; overflow:hidden; '+frame+'">'+(LN.renderRichText(n.text||''))+'</div>';
     }).join('');
     var annoFontPt = Math.max(6, fontPt-1.5);
     var annoHtml = (note.nodes||[]).map(function(n){
