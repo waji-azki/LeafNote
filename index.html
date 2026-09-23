@@ -1,0 +1,2944 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>リーフノート</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@500;700&family=Noto+Sans+JP:wght@400;500;700&display=swap">
+
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#EFECE2" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1C1B17" media="(prefers-color-scheme: dark)">
+<meta name="description" content="手書きのお仕事メモを、ミニルーズリーフに印刷できるかたちにまとめるアプリ">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="リーフノート">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+</head>
+<body>
+<style id="pagestyle"></style>
+<style>
+  :root{
+    --paper:#EFECE2; --surface:#FFFFFF; --surface-2:#F7F5EC;
+    --ink:#26251F; --ink-soft:#6B6A5F;
+    --accent:#2E4A73; --accent-contrast:#FFFFFF; --accent-soft:#DCE4EE;
+    --rule:#A63D33; --line:#D9D5C6; --danger:#A63D33;
+    --shadow:0 1px 3px rgba(38,37,31,.10), 0 1px 2px rgba(38,37,31,.06);
+    --font-display:'Zen Maru Gothic','Hiragino Maru Gothic ProN','Noto Sans JP',sans-serif;
+    --font-body:'Noto Sans JP','Hiragino Kaku Gothic ProN',sans-serif;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --paper:#1C1B17; --surface:#24231D; --surface-2:#2B2A23;
+      --ink:#ECE8DC; --ink-soft:#A9A597;
+      --accent:#8FB0D9; --accent-contrast:#14202E; --accent-soft:#2A3A4C;
+      --rule:#D97B6D; --line:#3B392F; --danger:#D97B6D;
+      --shadow:0 1px 3px rgba(0,0,0,.45), 0 1px 2px rgba(0,0,0,.3);
+    }
+  }
+  :root[data-theme="dark"]{
+    --paper:#1C1B17; --surface:#24231D; --surface-2:#2B2A23;
+    --ink:#ECE8DC; --ink-soft:#A9A597;
+    --accent:#8FB0D9; --accent-contrast:#14202E; --accent-soft:#2A3A4C;
+    --rule:#D97B6D; --line:#3B392F; --danger:#D97B6D;
+    --shadow:0 1px 3px rgba(0,0,0,.45), 0 1px 2px rgba(0,0,0,.3);
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%; margin:0;}
+  body{background:var(--paper); color:var(--ink); font-family:var(--font-body); font-size:15px; line-height:1.6; -webkit-tap-highlight-color:transparent; overscroll-behavior:none;}
+  h1,h2,h3{font-family:var(--font-display); text-wrap:balance; margin:0;}
+  button{font-family:inherit; font-size:inherit; color:inherit;}
+  input,select,textarea{font-family:inherit; font-size:inherit; color:inherit;}
+  :focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
+  [hidden]{display:none!important;}
+  img{max-width:100%;}
+
+  #app{height:100%; display:flex; flex-direction:column; max-width:640px; margin:0 auto; position:relative;}
+  .topbar{position:sticky; top:env(safe-area-inset-top,0px); z-index:6; display:flex; align-items:center; gap:10px; padding:14px 16px 12px; background:var(--paper); border-bottom:1px solid var(--line);}
+  .topbar .leafmark{width:28px; height:28px; flex:none; color:var(--rule); cursor:pointer;}
+  .topbar h1{font-size:18px; font-weight:700; letter-spacing:.02em;}
+  .topbar .sub{font-size:11px; color:var(--ink-soft); margin-top:1px;}
+  .topbar .backbtn{background:none; border:none; color:var(--ink); flex:none; padding:4px; margin-right:-2px;}
+  .topbar .backbtn svg{width:22px; height:22px;}
+  .topbar .spacer{flex:1;}
+  .topbar .tbaction{background:none; border:none; color:var(--accent); font-weight:700; font-size:13.5px; padding:6px 4px;}
+
+  main{flex:1 1 auto; overflow-y:auto; -webkit-overflow-scrolling:touch; padding:16px; padding-bottom:28px;}
+  main.flush{padding:0;}
+
+  nav.tabbar{position:sticky; bottom:0; z-index:6; display:flex; background:var(--surface); border-top:1px solid var(--line); padding:6px 4px calc(6px + env(safe-area-inset-bottom,0px));}
+  nav.tabbar button{flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; background:none; border:none; padding:6px 2px; border-radius:10px; color:var(--ink-soft); cursor:pointer;}
+  nav.tabbar button svg{width:21px; height:21px;}
+  nav.tabbar button span{font-size:10.5px; font-weight:500;}
+  nav.tabbar button.active{color:var(--accent);}
+
+  .toast{position:absolute; left:16px; right:16px; bottom:70px; z-index:30; background:var(--ink); color:var(--paper); padding:10px 14px; border-radius:10px; font-size:13px; box-shadow:var(--shadow); opacity:0; transform:translateY(6px); pointer-events:none; transition:opacity .2s ease, transform .2s ease;}
+  .toast.show{opacity:1; transform:translateY(0);}
+  .toast.error{background:var(--danger); color:#fff;}
+
+  .icon{width:18px; height:18px; flex:none;}
+  .btn{display:inline-flex; align-items:center; justify-content:center; gap:6px; border-radius:10px; border:1px solid var(--line); background:var(--surface); color:var(--ink); padding:10px 14px; font-weight:500; cursor:pointer;}
+  .btn.primary{background:var(--accent); color:var(--accent-contrast); border-color:var(--accent);}
+  .btn.danger{color:var(--danger); border-color:var(--danger); background:var(--surface);}
+  .btn.block{width:100%;}
+  .btn.small{padding:6px 10px; font-size:12.5px; border-radius:8px;}
+  .btn:disabled{opacity:.5; cursor:default;}
+
+  .field{display:flex; flex-direction:column; gap:6px; margin-bottom:14px;}
+  .field label{font-size:12.5px; font-weight:700; color:var(--ink-soft); letter-spacing:.03em;}
+  .field input[type=text], .field input[type=number], .field select, .field textarea{background:var(--surface-2); border:1px solid var(--line); border-radius:10px; padding:10px 12px; color:var(--ink); width:100%;}
+  .field textarea{resize:vertical; min-height:140px; font-family:var(--font-body);}
+  .row{display:flex; gap:10px;}
+  .row > *{flex:1;}
+  .hint{font-size:12px; color:var(--ink-soft); margin-top:4px;}
+  .section-title{font-size:13px; font-weight:700; color:var(--ink-soft); letter-spacing:.03em; margin:20px 0 10px;}
+  .section-title:first-child{margin-top:0;}
+  .card{background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:14px; margin-bottom:14px; box-shadow:var(--shadow);}
+
+  /* rich text (keybox + bullets) */
+  .keybox{display:inline-block; border:1.4px solid currentColor; border-radius:4px; padding:0 5px; margin:0 1px; font-weight:700; line-height:1.5;}
+  .rt-line{min-height:1.5em;}
+  .rt-blank{min-height:.6em;}
+  .rt-list{margin:0; padding-left:1.2em;}
+  .rt-list li{margin-bottom:.15em;}
+
+  /* ---- list view with side index ---- */
+  .listwrap{display:flex; gap:0; height:100%;}
+  .listmain{flex:1; min-width:0; padding:16px; overflow-y:auto;}
+  .sideindex{flex:none; width:44px; display:flex; flex-direction:column; gap:6px; padding:16px 4px; overflow-y:auto;}
+  .sideindex .tab{border:1px solid var(--line); border-right:none; border-radius:8px 0 0 8px; background:var(--surface); color:var(--ink-soft); padding:8px 2px; cursor:pointer; min-height:88px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; overflow:hidden;}
+  .sideindex .tab.active{background:var(--accent-soft); color:var(--ink); border-color:var(--accent); transform:translateX(-5px); box-shadow:-2px 2px 4px rgba(0,0,0,.08);}
+  .sideindex .tab .dot{width:7px; height:7px; border-radius:50%; flex:none;}
+  .sideindex .tab .lbl{display:inline-block; white-space:nowrap; transform:rotate(90deg); font-size:11px; font-weight:700; letter-spacing:.03em;}
+
+  .searchbar{display:flex; align-items:center; gap:8px; background:var(--surface-2); border:1px solid var(--line); border-radius:10px; padding:8px 12px; margin-bottom:12px;}
+  .searchbar input{flex:1; border:none; background:none; outline:none; color:var(--ink);}
+  .searchbar svg{width:16px; height:16px; color:var(--ink-soft); flex:none;}
+
+  .empty{text-align:center; padding:48px 16px; color:var(--ink-soft);}
+  .empty .icon-big{width:40px; height:40px; margin:0 auto 14px; color:var(--line);}
+  .empty p{margin:0 0 16px; font-size:13.5px;}
+
+  .notelist{display:flex; flex-direction:column; gap:10px;}
+  .notecard{display:flex; gap:10px; background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:12px; box-shadow:var(--shadow); position:relative; cursor:pointer;}
+  .notecard .typeicon{flex:none; width:30px; height:30px; border-radius:8px; display:flex; align-items:center; justify-content:center; background:var(--surface-2); color:var(--ink-soft);}
+  .notecard .typeicon svg{width:16px; height:16px;}
+  .notecard .body{flex:1; min-width:0;}
+  .notecard .body h3{font-size:14.5px; font-weight:700; margin-bottom:3px;}
+  .notecard .snippet{font-size:12.5px; color:var(--ink-soft); display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;}
+  .notecard .meta{display:flex; align-items:center; gap:8px; margin-top:7px;}
+  .tag{font-size:10.5px; font-weight:700; padding:2px 8px; border-radius:999px; border:1.4px solid currentColor;}
+  .tag.none{color:var(--ink-soft);}
+  .date{font-size:10.5px; color:var(--ink-soft);}
+  .notecard .del{flex:none; background:none; border:none; color:var(--ink-soft); padding:4px; align-self:flex-start; cursor:pointer;}
+  .notecard .del svg{width:16px; height:16px;}
+  .notecard .del:hover{color:var(--danger);}
+
+  .chooser{display:flex; flex-direction:column; gap:14px; padding-top:10vh;}
+  .choosebtn{display:flex; flex-direction:column; align-items:center; gap:10px; padding:28px 16px; border-radius:16px; border:1px solid var(--line); background:var(--surface); box-shadow:var(--shadow); cursor:pointer;}
+  .choosebtn svg{width:34px; height:34px; color:var(--accent);}
+  .choosebtn .t{font-family:var(--font-display); font-weight:700; font-size:16px;}
+  .choosebtn .d{font-size:12px; color:var(--ink-soft); text-align:center;}
+
+  .catrow{display:flex; align-items:center; gap:10px; background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:10px 12px; margin-bottom:8px;}
+  .catrow .dot{width:14px; height:14px; border-radius:50%; flex:none;}
+  .catrow .name{flex:1; font-weight:500; font-size:14px;}
+  .catrow .count{font-size:11.5px; color:var(--ink-soft);}
+  .palette{display:flex; gap:8px; flex-wrap:wrap;}
+  .swatch{width:30px; height:30px; border-radius:50%; border:2px solid transparent; cursor:pointer;}
+  .swatch.selected{border-color:var(--ink);}
+  .iconbtn{background:none; border:none; padding:4px; color:var(--ink-soft); cursor:pointer; border-radius:6px;}
+  .iconbtn:hover{color:var(--ink);}
+  .iconbtn svg{width:17px; height:17px;}
+
+  /* ---- custom modal (replaces native confirm/prompt, which sandboxed hosts may block) ---- */
+  .modalOverlay{position:fixed; inset:0; background:rgba(20,18,14,.5); z-index:80; display:flex; align-items:center; justify-content:center; padding:20px;}
+  .modalBox{background:var(--surface); border-radius:14px; padding:18px; max-width:320px; width:100%; box-shadow:var(--shadow); border:1px solid var(--line);}
+  .modalMsg{font-size:13.5px; margin-bottom:14px; white-space:pre-wrap; line-height:1.6;}
+  .modalInput{width:100%; padding:9px 11px; border:1px solid var(--line); border-radius:8px; background:var(--surface-2); color:var(--ink); margin-bottom:14px;}
+  .modalBtns{display:flex; gap:8px; justify-content:flex-end;}
+
+  /* ---- flow canvas ---- */
+  .canvasToolbar{display:flex; align-items:center; gap:8px; padding:8px 10px; background:var(--surface); border-bottom:1px solid var(--line); flex:none;}
+  .canvasToolbar input.titlein{flex:1; border:none; background:none; font-weight:700; font-size:14.5px; color:var(--ink); min-width:0;}
+  .canvasToolbar .zoombtns{display:flex; gap:2px; flex:none;}
+  .canvasHint{flex:none; position:relative; font-size:11px; color:var(--ink-soft); text-align:center; padding:5px 26px 5px 10px; background:var(--accent-soft); border-bottom:1px solid var(--line);}
+  .canvasHint .hintClose{position:absolute; right:4px; top:3px; background:none; border:none; color:var(--ink-soft); font-size:12px; padding:2px 5px; cursor:pointer;}
+  /* The editing area IS the sheet. The outer strip is the "desk"; inside it the viewport
+     is exactly as wide as the paper (capped to the screen), and the sheets themselves —
+     punch holes, 5mm grid, page edges — are drawn in the world so that what is edited
+     sits where it will print. */
+  .canvasViewportOuter{flex:1; position:relative; overflow:hidden; background:#CFCBBE;}
+  .canvasViewport{position:absolute; top:0; bottom:0; left:50%; transform:translateX(-50%); overflow:hidden; touch-action:none; background:#CFCBBE;}
+  .canvasWorld{position:absolute; left:0; top:0; transform-origin:0 0; will-change:transform;}
+  .canvasWorld svg{position:absolute; left:0; top:0; overflow:visible; pointer-events:none;}
+  /* one physical sheet of the mini loose-leaf, drawn behind the content */
+  .sheetGuide{position:absolute; background-color:#fff;
+    background-image:linear-gradient(#e3ddd0 1px, transparent 1px), linear-gradient(90deg,#e3ddd0 1px, transparent 1px);
+    box-shadow:0 1px 4px rgba(0,0,0,.28); pointer-events:none;}
+  .sheetHoles{position:absolute; left:0; right:0; top:0; display:flex; justify-content:space-evenly; align-items:center; border-bottom:1px dashed #d8d2c2;}
+  .sheetHoles span{width:5.5%; aspect-ratio:1; border-radius:50%; border:1px dashed #c3bdaa;}
+  .sheetEnd{position:absolute; left:0; right:0; height:0; border-top:1px dashed #cfa89f;}
+  .sheetNo{position:absolute; right:3px; bottom:2px; font-size:7px; color:#b9b2a0; letter-spacing:.04em;}
+  /* Boxes. f-plain = a main-flow box: prints with no frame at all, so on the canvas it
+     gets only a faint dashed guide (not ink). f-callout/f-emph/f-title do print a frame. */
+  .flowNode{position:absolute; background:transparent; border:1.2px solid transparent; border-radius:5px; padding:5px 7px; font-size:11px; line-height:1.35; color:#1a1a1a; cursor:grab; overflow:hidden; user-select:none; touch-action:none;}
+  .flowNode.f-plain{border-style:dashed; border-color:#9fb6cc; background:rgba(255,255,255,.35);}
+  .flowNode.f-callout{border-color:#1a1a1a; background:#fff;}
+  .flowNode.f-emph{border-width:1.8px; border-color:#1a1a1a; background:#fff; font-weight:700;}
+  .flowNode.f-title{border-color:#1a1a1a; background:#fff; font-weight:700; font-size:12px;}
+  .flowNode.selected{outline:2px solid var(--accent); outline-offset:1px;}
+  .flowNode textarea{width:100%; height:100%; border:none; background:none; resize:none; outline:none; font:inherit; color:inherit; padding:0;}
+  .flowGhost{position:absolute; border:1.6px dashed var(--accent); border-radius:8px; background:var(--accent-soft); opacity:.85; pointer-events:none;}
+  .flowArrowLabel{position:absolute; background:rgba(255,255,255,.85); font-size:9.5px; padding:0 3px; color:#1a1a1a; white-space:nowrap; pointer-events:auto; cursor:pointer; transform:translate(-50%,-50%);}
+  /* An arrow's label prints as plain text to the RIGHT of the line — no bubble, no box.
+     On the canvas it carries a faint dashed guide so it stays tappable. */
+  .flowArrowLabel.vlabel{left:calc(var(--vx,0px) + 7px); transform:translate(0,-50%); white-space:normal; max-width:150px; line-height:1.3;
+    background:transparent; border:1px dashed #9fbca6; border-radius:3px; padding:1px 3px;}
+  .canvasFab{position:absolute; right:14px; bottom:14px; width:46px; height:46px; border-radius:50%; background:var(--accent); color:var(--accent-contrast); border:none; display:flex; align-items:center; justify-content:center; box-shadow:var(--shadow); z-index:3;}
+  .canvasFab svg{width:22px; height:22px;}
+  .zoombtn{width:30px; height:30px; border-radius:8px; border:1px solid var(--line); background:var(--surface); color:var(--ink); display:flex; align-items:center; justify-content:center;}
+  /* Alternate frame designs for the auto title box, cycled by double-tapping it. */
+  .flowNode.f-title.frame-double{box-shadow:0 0 0 1.4px #fff, 0 0 0 2.6px #1a1a1a;}
+  .flowNode.f-title.frame-thin{border-width:0.8px; font-weight:500;}
+  .flowNode.f-title.frame-underline{border:none; border-bottom:1.8px solid #1a1a1a; border-radius:0; background:transparent; padding-left:1px;}
+  .flowNodeWrap{position:absolute;}
+  .nodeBtn{position:absolute; width:19px; height:19px; border-radius:50%; background:var(--surface); border:1.3px solid var(--ink); color:var(--ink); display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; line-height:1; cursor:pointer; z-index:2; user-select:none; touch-action:none; padding:0;}
+  /* the selected box's controls, in a small bar clear of the box's own edges so that
+     swiping from the box is never intercepted by a button */
+  .nodeCtrls{position:absolute; right:0; top:-24px; display:flex; gap:5px; z-index:4;}
+  .nodeCtrls.below{top:auto; bottom:-24px;}
+  .nodeCtrls .nodeBtn{position:static; box-shadow:0 1px 3px rgba(0,0,0,.25);}
+  .nodeBtn.addAnno{background:var(--accent); color:var(--accent-contrast); border-color:var(--accent);}
+  .nodeBtn.styleToggle.active{background:var(--accent); color:var(--accent-contrast); border-color:var(--accent);}
+  .nodeBtn.moveHandle{background:var(--surface); color:var(--accent); border-color:var(--accent); cursor:grab; font-size:12px;}
+  .nodeBtn.delBtn{background:var(--surface); color:var(--danger); border-color:var(--danger); font-size:10px;}
+  /* A note prints as plain text (with its bracket, which IS ink) — the dashed outline is
+     only an edit-time guide, like the boxes above. */
+  .flowAnnotation{position:absolute; background:rgba(255,255,255,.4); border:1px dashed #9fbca6; border-radius:4px; padding:3px 5px; font-size:10px; line-height:1.4; color:#1a1a1a; cursor:grab; user-select:none; touch-action:none;}
+  .flowAnnotation.selected{outline:2px solid var(--accent); outline-offset:1px;}
+  .annoGroup{border-left:1.6px solid #555; border-radius:4px 0 0 4px; padding-left:5px; margin:1px 0 1px 1px;}
+  .flowDivider{position:absolute; height:0; border-top:1.4px solid #666; touch-action:none; cursor:grab;}
+  .dividerHandle{position:absolute; width:13px; height:13px; border-radius:50%; background:#666; touch-action:none; cursor:ew-resize; transform:translate(-50%,-50%);}
+  .annoEditBox{background:var(--surface); border-radius:14px; padding:16px; max-width:340px; width:100%; box-shadow:var(--shadow); border:1px solid var(--line);}
+  .annoEditBox textarea{width:100%; min-height:110px; border:1px solid var(--line); border-radius:8px; background:var(--surface-2); color:var(--ink); padding:9px 11px; font-size:13px; resize:vertical; margin-bottom:10px; font-family:inherit;}
+  .annoToolbar{display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px;}
+
+  /* ---- memo editor ---- */
+  .memoToolbar{display:flex; gap:8px; padding:8px 10px; background:var(--surface); border-bottom:1px solid var(--line); flex-wrap:wrap;}
+  .memoSplit{display:flex; flex-direction:column; height:100%;}
+  .memoSplit textarea{flex:1; border:none; border-bottom:1px solid var(--line); background:var(--surface-2); padding:12px 14px; resize:none; outline:none; font-size:14px; line-height:1.7;}
+  .memoPreview{flex:1; padding:12px 14px; overflow-y:auto; background:var(--surface);}
+  .memoPreview .ph{color:var(--ink-soft); font-size:12px;}
+
+  /* ---- print ---- */
+  .printPreviewWrap{overflow-x:auto; padding:6px 0 16px; -webkit-overflow-scrolling:touch;}
+  .printSheet{background:#fff; color:#1a1a1a; margin:0 auto 14px; box-shadow:0 1px 6px rgba(0,0,0,.2); position:relative;}
+  /* True physical mm size (matches @media print exactly) — the JS applies a CSS
+     zoom to shrink this down to fit the screen. Using an approximate px size here
+     (e.g. aspect-ratio + a fixed max-width) would scale the frame independently of
+     the mm-based content inside it, causing the content to overflow the page edge. */
+  .printSheet.mini{width:calc(var(--pw,86) * 1mm); height:calc(var(--ph,128) * 1mm);}
+  .printSheet .holes{position:absolute; left:0; right:0; top:0; height:var(--holemm,16mm); display:flex; justify-content:space-evenly; align-items:center; pointer-events:none;}
+  .printSheet .holes span{width:9%; aspect-ratio:1; max-width:14px; border-radius:50%; border:1px dashed #bbb;}
+  .printSheet .grid{position:absolute; inset:0; background-image:linear-gradient(#e3ddd0 1px, transparent 1px), linear-gradient(90deg,#e3ddd0 1px, transparent 1px); background-size:var(--gridpx,15px) var(--gridpx,15px); opacity:.6;}
+  .printSheet .content{position:absolute; overflow:hidden;}
+  .printSheet .content .inner{position:absolute;}
+  .printSheet .memotext{position:absolute; inset:0; padding:2mm; font-size:9pt; white-space:pre-wrap; overflow:hidden;}
+  /* True A4 mm size for the same reason as .printSheet.mini above — the nested mini
+     sheets inside each cell are true-mm-sized too, so the grid must be as well. */
+  .a4sheet{background:#fff; margin:0 auto 16px; box-shadow:0 1px 6px rgba(0,0,0,.2); display:grid; grid-template-columns:repeat(2,1fr); gap:4mm; padding:6mm; width:210mm; height:297mm;}
+  .a4sheet .cell{border:1px dashed #999; position:relative; overflow:hidden;}
+  @media print{
+    body *{visibility:hidden;}
+    #printRoot, #printRoot *{visibility:visible;}
+    #printRoot{position:absolute; left:0; top:0; width:auto; padding:0; margin:0; background:#fff;}
+    .printSheet{box-shadow:none!important; margin:0!important; page-break-after:always;}
+    .a4sheet{box-shadow:none!important; margin:0!important; page-break-after:always;}
+    .printSheet:last-child, .a4sheet:last-child{page-break-after:auto;}
+  }
+
+  /* ---- keyboard input-assist bar ----
+     A row of quick-insert symbol buttons docked just above the on-screen keyboard
+     while typing in a flow box, an annotation, or a memo — so common marks (bullets,
+     arrows, checkboxes...) don't need switching input methods to type. */
+  /* z-index sits above the modal layer (80): the note editor is a modal, and its
+     textarea needs the assist bar just as much as an on-canvas box does. */
+  .kbdAssist{position:fixed; left:0; right:0; bottom:0; z-index:90; display:flex; gap:5px; padding:6px 8px; background:var(--surface); border-top:1px solid var(--line); overflow-x:auto; -webkit-overflow-scrolling:touch; box-shadow:0 -1px 4px rgba(0,0,0,.08);}
+  .kbdAssist button{flex:none; min-width:36px; height:36px; border-radius:9px; border:1px solid var(--line); background:var(--surface-2); color:var(--ink); font-size:16px; display:flex; align-items:center; justify-content:center; line-height:1;}
+  .kbdAssist button:active{background:var(--accent-soft); border-color:var(--accent);}
+</style>
+<div id="app">
+  <header class="topbar" id="topbar">
+    <svg class="leafmark" onclick="App.goTab('list')" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18C4 9 11 4 20 4c0 9-5 16-14 16-2 0-3-.5-3-2Z"/><path d="M4 18c4-3 7-7 9-12"/></svg>
+    <div><h1>リーフノート</h1><div class="sub" id="topbarSub">メモを整理して、印刷用にレイアウト</div></div>
+  </header>
+  <main id="view"><div class="empty"><p>読み込み中…</p></div></main>
+  <div class="toast" id="toast"></div>
+  <div class="kbdAssist" id="kbdAssist" hidden>
+    <button type="button" data-act="undo" title="元に戻す">↺</button>
+    <button type="button" data-act="redo" title="やり直す">↻</button>
+    <button type="button" data-act="ins" data-val="・" title="箇条書き">・</button>
+    <button type="button" data-act="ins" data-val="⚠" title="注意マーク">⚠</button>
+    <button type="button" data-act="ins" data-val="□" title="チェック枠">□</button>
+    <button type="button" data-act="ins" data-val="→" title="矢印">→</button>
+    <button type="button" data-act="ins" data-val="+" title="プラス">+</button>
+    <button type="button" data-act="wrap" title="キー囲み">【】</button>
+  </div>
+  <nav class="tabbar">
+    <button data-tab="list" onclick="App.goTab('list')"></button>
+    <button data-tab="add" onclick="App.goTab('add')"></button>
+    <button data-tab="categories" onclick="App.goTab('categories')"></button>
+    <button data-tab="print" onclick="App.goTab('print')"></button>
+    <button data-tab="settings" onclick="App.goTab('settings')"></button>
+  </nav>
+</div>
+<script>
+(function(){
+  "use strict";
+
+  var ICONS = {
+    list:'<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="8" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="20" y2="12"/><line x1="8" y1="18" x2="20" y2="18"/><circle cx="4" cy="6" r="1.4" fill="currentColor" stroke="none"/><circle cx="4" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="4" cy="18" r="1.4" fill="currentColor" stroke="none"/></svg>',
+    add:'<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>',
+    tag:'<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41 13.41 20.59a2 2 0 0 1-2.82 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82Z"/><circle cx="7" cy="7" r="1.3" fill="currentColor" stroke="none"/></svg>',
+    print:'<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>',
+    settings:'<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>',
+    trash:'<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>',
+    search:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>',
+    back:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>',
+    flow:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="6" rx="1.4"/><rect x="14" y="15" width="7" height="6" rx="1.4"/><path d="M6.5 9v3a3 3 0 0 0 3 3H14"/><path d="M17.5 15v-3a3 3 0 0 0-3-3h-1"/></svg>',
+    memo:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h13l3 3v13H4Z"/><line x1="8" y1="9" x2="16" y2="9"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="12" y2="17"/></svg>',
+    plus:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>',
+    zin:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="8" y1="11" x2="14" y2="11"/><line x1="11" y1="8" x2="11" y2="14"/></svg>',
+    zout:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="8" y1="11" x2="14" y2="11"/></svg>'
+  };
+  var iconKeys = {list:'list', add:'add', categories:'tag', print:'print', settings:'settings'};
+  var tabLabels = {list:'一覧', add:'追加', categories:'カテゴリ', print:'印刷', settings:'設定'};
+
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+  function uid(){ try{ return crypto.randomUUID(); }catch(e){ return 'id-'+Date.now()+'-'+Math.random().toString(36).slice(2,9); } }
+  function nowIso(){ return new Date().toISOString(); }
+  function fmtDate(iso){ try{ var d=new Date(iso); return d.getFullYear()+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+String(d.getDate()).padStart(2,'0'); }catch(e){ return ''; } }
+  function nowStamp(){ var d=new Date(); return d.getFullYear()+String(d.getMonth()+1).padStart(2,'0')+String(d.getDate()).padStart(2,'0')+'-'+String(d.getHours()).padStart(2,'0')+String(d.getMinutes()).padStart(2,'0'); }
+  function byOrder(a,b){ return (a.order||0)-(b.order||0); }
+  function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
+
+  // Shared vertical-edge label wrapping (used by both the canvas-side gap
+  // auto-adjustment and the print SVG renderer, in mm units), so a long or
+  // crowded arrow label wraps to multiple lines consistently everywhere and
+  // the space it needs can be computed once and reused.
+  function wrapEdgeLabel(label){
+    var maxW=32, charW=2.3, maxChars=Math.max(4, Math.floor((maxW-3.4)/charW));
+    var lines=[]; var rest=label||'';
+    while(rest.length>maxChars){ lines.push(rest.slice(0,maxChars)); rest=rest.slice(maxChars); }
+    lines.push(rest);
+    var longest = Math.max.apply(null, lines.map(function(l){return l.length;}));
+    var lineH=3.3, boxH=2+lines.length*lineH, estW=Math.min(maxW, 5+longest*charW);
+    return {lines:lines, boxH:boxH, estW:estW, lineH:lineH, maxW:maxW};
+  }
+
+  // Pure, note-object-only version of the same gap auto-adjustment the flow
+  // editor applies live, so the print engine (which has no access to the
+  // editor's FE/nodesArr state) can self-heal a note's layout too — e.g. a
+  // note saved by an older version of the app, before this fix existed.
+  // Mutates note.nodes/dividers in place; returns true if it changed anything.
+  function ensureFlowEdgeGaps(note){
+    if(!note || !note.nodes || !note.nodes.length) return false;
+    var nodes = note.nodes, edges = note.edges||[];
+    function nb(id){ return nodes.find(function(n){return n.id===id;}); }
+    var changed=false;
+    edges.forEach(function(e){
+      if(!e.vertical || !e.label) return;
+      var a=nb(e.from), b=nb(e.to);
+      if(!a||!b) return;
+      var ah=a.h||MM_PER_NODE_H, bh=b.h||MM_PER_NODE_H;
+      var belowsource = b.y>=a.y;
+      var topNode=belowsource?a:b, topH=belowsource?ah:bh;
+      var bottomNode=belowsource?b:a;
+      var gap = bottomNode.y-(topNode.y+topH);
+      var wrapped = wrapEdgeLabel(e.label);
+      var needed = wrapped.boxH+2;
+      if(gap>=needed) return;
+      shiftContentBelow(note, bottomNode.y-0.01, needed-gap);
+      changed=true;
+    });
+    return changed;
+  }
+
+  // ---------- paper geometry (one definition, shared by the editor and the printer) ----------
+  // World coordinates are millimetres, and x=0 / y=0 is the TOP-LEFT OF THE PRINTABLE AREA
+  // of the first sheet — i.e. marginMm in from the paper's left edge, holeMm down from its
+  // top edge. Everything (canvas, print, page breaks) derives from that one anchor, so what
+  // is edited and what is printed line up exactly.
+  function fullWidthMm(){ var s=state.settings; return Math.max(20, (s.paperW||86) - (s.marginMm||3)*2); }
+  // How tall one sheet's writable band is...
+  function pageHeightMm(){ var s=state.settings; return Math.max(20, (s.paperH||128) - (s.holeMm||16) - (s.marginMm||3)); }
+  // ...and how far apart consecutive bands sit. Sheets are separate pieces of paper, so
+  // between the bottom of one band and the top of the next there is a dead strip (the
+  // sheet's bottom margin plus the next sheet's punch-hole zone) that content may not
+  // occupy. Spacing the bands by the full paper height keeps the sheets from overlapping
+  // and means a box is never split across two sheets.
+  function pagePitchMm(){ var s=state.settings; return Math.max(pageHeightMm()+1, s.paperH||128); }
+  function pageIndexOf(ymm){ return Math.max(0, Math.floor((ymm+0.01)/pagePitchMm())); }
+  function bandTopMm(k){ return k*pagePitchMm(); }
+  function bandBottomMm(k){ return k*pagePitchMm() + pageHeightMm(); }
+  // Where a block of height h can start if it wants to begin at/after y without
+  // straddling the end of a sheet.
+  function placeInBand(ymm, hmm){
+    var k = pageIndexOf(ymm);
+    if(ymm + (hmm||0) > bandBottomMm(k) + 0.01) return bandTopMm(k+1);
+    return ymm;
+  }
+  // After anything has been pushed down (a wrapped arrow label, a note), a box may have
+  // landed in a dead strip — walk the content top-to-bottom and move such boxes (with
+  // everything below them) onto the next sheet.
+  function snapOutOfDeadZones(note){
+    if(!note || !note.nodes) return false;
+    var changed=false;
+    for(var pass=0; pass<8; pass++){
+      var hit=null;
+      note.nodes.slice().sort(function(a,b){return a.y-b.y;}).forEach(function(n){
+        if(hit) return;
+        var k = pageIndexOf(n.y);
+        if(n.y + nodeHmm(n) > bandBottomMm(k) + 0.01) hit = {node:n, k:k};
+      });
+      if(!hit) break;
+      shiftContentBelow(note, hit.node.y-0.01, bandTopMm(hit.k+1) - hit.node.y);
+      changed=true;
+    }
+    return changed;
+  }
+  // A "full" box belongs to the main flow. On its own it spans the whole printable
+  // width; when several steps branch from the same box they share one row, and `cols`
+  // says how many ways that row is split — two steps side by side get half each.
+  var COL_GAP_MM = 4;
+  function colWidthMm(cols){
+    var c = Math.max(1, cols||1);
+    return Math.max(12, (fullWidthMm() - COL_GAP_MM*(c-1)) / c);
+  }
+  function colXMm(i, cols){ return i * (colWidthMm(cols) + COL_GAP_MM); }
+  function nodeWmm(n){ return n.full ? colWidthMm(n.cols||1) : (n.w||MM_PER_NODE_W); }
+  function nodeHmm(n){ return n.h||MM_PER_NODE_H; }
+  function dividerWmm(d){ return d.full ? fullWidthMm() : (d.w||fullWidthMm()); }
+  // What kind of frame a box gets. The rule the printed page follows: only real ink is
+  // drawn — the title's frame, an emphasised box's frame and a small call-out's frame.
+  // A full-width box of the main flow prints with NO frame at all (the editor shows a
+  // faint dashed guide for it instead, which is not ink).
+  function frameKindOf(n){
+    if(n.isTitleNode) return 'title';
+    if(n.style==='heading') return 'emph';
+    if(n.full) return 'plain';
+    return 'callout';
+  }
+  function annoLinesOf(a){
+    var raw = (a.text||'').split('\n');
+    var n = 0;
+    raw.forEach(function(l){ n += Math.max(1, Math.ceil(l.length/22)); });
+    return Math.max(1, n);
+  }
+  function annoHeightMm(a){ return 3 + annoLinesOf(a)*3.4; }
+  // Pushes everything at/below thresholdY further down, keeping relative layout intact.
+  function shiftContentBelow(note, thresholdY, dy){
+    if(dy<=0) return;
+    (note.nodes||[]).forEach(function(n){
+      if(n.y >= thresholdY){
+        n.y += dy;
+        (n.annotations||[]).forEach(function(a){ a.y += dy; });
+      }
+    });
+    (note.dividers||[]).forEach(function(d){ if(d.y >= thresholdY) d.y += dy; });
+  }
+
+  // One-time cleanup of notes laid out by earlier versions, which put the main trunk at
+  // x=2mm with a baked-in width (and annotations at x≈86mm, off the page entirely), and
+  // let content run straight through page boundaries.
+  function normalizeFlowGeometry(note){
+    if(!note || note.type!=='flow' || note.geomV2) return false;
+    var fw = fullWidthMm();
+    var nodes = note.nodes||[], dividers = note.dividers||[];
+    // Old y values assumed pages butted together with no dead strip between sheets.
+    var oldPitch = pageHeightMm(), pitch = pagePitchMm();
+    function remapY(y){ var k = Math.max(0, Math.floor(y/oldPitch)); return k*pitch + (y - k*oldPitch); }
+    nodes.forEach(function(n){
+      n.y = remapY(n.y);
+      (n.annotations||[]).forEach(function(a){ a.y = remapY(a.y); });
+    });
+    dividers.forEach(function(d){ d.y = remapY(d.y); });
+    nodes.forEach(function(n){
+      var w = n.w||MM_PER_NODE_W;
+      if(n.isTitleNode || w >= fw-6){ n.full = true; n.x = 0; }
+      else {
+        if(n.x>0 && n.x<=2) n.x = 0;
+        // A branch box parked beyond the paper's edge (the old geometry allowed that) is
+        // invisible and unprintable — bring it back onto the sheet.
+        if(n.x + w > fw){ n.w = Math.min(w, fw); n.x = Math.max(0, fw - n.w); }
+      }
+    });
+    dividers.forEach(function(d){
+      if((d.w||0) >= fw-6){ d.full = true; d.x = 0; }
+      else if(d.x>0 && d.x<=2){ d.x = 0; }
+    });
+    nodes.slice().forEach(function(n){
+      (n.annotations||[]).forEach(function(a){
+        if(a.x + 24 > fw){
+          // Was parked off the right edge of the paper — bring it under its own box and
+          // make room for it so it doesn't land on top of the next step.
+          var below = n.y + nodeHmm(n) + 2;
+          shiftContentBelow(note, below, annoHeightMm(a) + 3);
+          a.x = Math.min(3, Math.max(0, fw-30));
+          a.y = below;
+        }
+      });
+    });
+    snapOutOfDeadZones(note);
+    note.geomV2 = true;
+    return true;
+  }
+
+  // rich text: 【key】 boxes + ・bullet lines, shared by memo preview / node display / print
+  function boxify(escapedLine){ return escapedLine.replace(/【([^】]*)】/g, '<span class="keybox">$1</span>'); }
+  function renderRichText(raw){
+    var lines = esc(raw||'').split('\n');
+    var html=''; var inList=false;
+    lines.forEach(function(line){
+      var m = line.match(/^・(.*)/);
+      if(m){
+        if(!inList){ html+='<ul class="rt-list">'; inList=true; }
+        html += '<li>'+boxify(m[1])+'</li>';
+      } else {
+        if(inList){ html+='</ul>'; inList=false; }
+        html += line.trim()==='' ? '<div class="rt-blank">&nbsp;</div>' : ('<div class="rt-line">'+boxify(line)+'</div>');
+      }
+    });
+    if(inList) html+='</ul>';
+    return html;
+  }
+  function plainSnippet(raw){ return esc((raw||'').replace(/[【】・\n]/g,' ').replace(/\s+/g,' ').trim().slice(0,110)); }
+
+  // annotation rich text: same as renderRichText, but a set of line-ranges can be wrapped
+  // in a bracket-style "group" (くくり括弧) — used for things like listing tea types together.
+  function renderAnnotationHtml(raw, groups){
+    var lines = (raw||'').split('\n');
+    var gs = (groups||[]).slice().sort(function(a,b){return a.start-b.start;});
+    var html=''; var i=0;
+    while(i<lines.length){
+      var g = gs.find(function(gr){ return gr.start===i; });
+      if(g && g.end>=g.start && g.end<lines.length){
+        html += '<div class="annoGroup">'+renderRichText(lines.slice(g.start,g.end+1).join('\n'))+'</div>';
+        i = g.end+1;
+      } else {
+        html += renderRichText(lines[i]);
+        i++;
+      }
+    }
+    return html;
+  }
+
+  var PALETTE = [
+    {name:'あか', hex:'#B33F32'}, {name:'だいだい', hex:'#BD7A34'},
+    {name:'きいろ', hex:'#A98B2C'}, {name:'みどり', hex:'#4C7A50'},
+    {name:'みずいろ', hex:'#3B7EA6'}, {name:'あお', hex:'#2E4A73'},
+    {name:'むらさき', hex:'#6B4C82'}, {name:'ぐれー', hex:'#66655A'}
+  ];
+
+  // marginMm is the paper's own outer margin: 3mm each side on 86mm paper leaves an
+  // 80mm printable width, which is the width a flow is allowed to use.
+  var DEFAULT_SETTINGS = {
+    paperW:86, paperH:128, holeMm:16, marginMm:3, gridMm:5,
+    printMode:'mini', fontPt:9
+  };
+  var LOCAL_KEY = 'leafnote_data_v2';
+  // A box is only as tall as what is written in it; this is the one-line floor, which
+  // the editor measures against and then stores the real height back onto the box.
+  var MM_PER_NODE_W = 34, MM_PER_NODE_H = 9;
+
+  var state = {
+    tab:'list', notes:[], categories:[], settings:Object.assign({},DEFAULT_SETTINGS),
+    storageMode:null, dbCap:null, downloadsCap:null,
+    filterCat:'all', searchQ:'', ready:false,
+    openId:null, // note currently open in flow/memo editor
+    printCat:'all'
+  };
+
+  // ---------- storage ----------
+  function loadLocal(){ try{ var raw=localStorage.getItem(LOCAL_KEY); return raw?JSON.parse(raw):null; }catch(e){ return null; } }
+
+  // 削除したメモ/カテゴリのIDと日時。これが無いと、別の端末から同期したときに
+  // 消したはずのメモが戻ってきてしまう。
+  var TOMB_KEY = 'leafnote_deleted_v1';
+  var tombstones = (function(){ try{ return JSON.parse(localStorage.getItem(TOMB_KEY)||'{}')||{}; }catch(e){ return {}; } })();
+  function getTombstones(){ return tombstones; }
+  function setTombstones(map){ tombstones = map||{}; try{ localStorage.setItem(TOMB_KEY, JSON.stringify(tombstones)); }catch(e){} }
+  // 削除の時刻は「消した瞬間」と「消したものの更新時刻の直後」の遅いほう。
+  // 端末どうしの時計が少しずれていても、削除が更新に負けて復活しないようにするため。
+  function markDeleted(id, item){
+    if(!id) return;
+    var now = Date.now();
+    var u = item && item.updatedAt ? Date.parse(item.updatedAt) : 0;
+    if(isNaN(u)) u = 0;
+    tombstones[id] = new Date(Math.max(now, u + 1000)).toISOString();
+    setTombstones(tombstones);
+  }
+
+  var suppressSync = false;
+  function writeLocal(){ try{ localStorage.setItem(LOCAL_KEY, JSON.stringify({notes:state.notes, categories:state.categories, settings:state.settings})); }catch(e){} }
+  function saveLocalAll(){
+    writeLocal();
+    if(!suppressSync && window.LNSync && window.LNSync.schedulePush) window.LNSync.schedulePush();
+  }
+  // 同期が持ち帰ったデータを書き戻すとき用 : これでまた同期を呼ぶと堂々巡りになる
+  function saveLocalQuiet(){ suppressSync = true; try{ writeLocal(); } finally { suppressSync = false; } }
+
+  function inLiveEditor(){ return state.tab==='flow' || state.tab==='memo'; }
+  function subscribeDb(){
+    state.dbCap.collection('notes').onSnapshot(function(snap){
+      state.notes = snap.docs.map(function(d){ return Object.assign({id:d.id}, d.data()); });
+      if(state.ready && !inLiveEditor()) window.App.renderCurrentTab();
+    }, function(){ showToast('メモの同期でエラーが発生しました','error'); });
+    state.dbCap.collection('categories').onSnapshot(function(snap){
+      state.categories = snap.docs.map(function(d){ return Object.assign({id:d.id}, d.data()); });
+      if(state.ready && !inLiveEditor()) window.App.renderCurrentTab();
+    }, function(){});
+    state.dbCap.doc('settings/print').onSnapshot(function(snap){
+      if(snap.exists) state.settings = Object.assign({}, DEFAULT_SETTINGS, snap.data());
+      if(state.ready && !inLiveEditor()) window.App.renderCurrentTab();
+    }, function(){});
+  }
+
+  async function initStorage(){
+    var db=null, downloads=null;
+    try{ db = window.claude ? await window.claude.use('db') : null; }catch(e){ db=null; }
+    try{ downloads = window.claude ? await window.claude.use('downloads') : null; }catch(e){ downloads=null; }
+    state.downloadsCap = downloads;
+    if(db){ state.dbCap=db; state.storageMode='db'; subscribeDb(); }
+    else {
+      state.storageMode='local';
+      var local = loadLocal();
+      if(local){ state.notes=local.notes||[]; state.categories=local.categories||[]; state.settings=Object.assign({},DEFAULT_SETTINGS, local.settings||{}); }
+    }
+    migrateMargin();
+    state.ready = true;
+    window.App.renderCurrentTab();
+  }
+
+  // Earlier versions defaulted to a 5mm margin, which left a 76mm printable width and
+  // (with the old 2mm box offset) pushed full-width boxes off the right edge. The paper
+  // is meant to be used to 3mm from each side — move anyone still on the old default over.
+  function migrateMargin(){
+    if(state.settings.marginV2) return;
+    if((state.settings.marginMm||0) === 5) state.settings.marginMm = 3;
+    state.settings.marginV2 = true;
+    if(state.storageMode==='db'){ try{ state.dbCap.doc('settings/print').set(state.settings); }catch(e){} }
+    else saveLocalAll();
+  }
+
+  async function upsertNote(note){
+    note.updatedAt = nowIso();
+    if(!note.createdAt) note.createdAt = note.updatedAt;
+    if(state.storageMode==='db'){
+      var id = note.id || uid();
+      var body = Object.assign({}, note); delete body.id;
+      await state.dbCap.collection('notes').doc(id).set(body);
+      return id;
+    } else {
+      var id2 = note.id || uid();
+      var full = Object.assign({}, note, {id:id2});
+      var idx = state.notes.findIndex(function(n){return n.id===id2;});
+      if(idx>=0) state.notes[idx]=full; else state.notes.push(full);
+      saveLocalAll();
+      return id2;
+    }
+  }
+  async function patchNote(id, patch){
+    var n = state.notes.find(function(x){return x.id===id;});
+    if(!n) return;
+    var full = Object.assign({}, n, patch);
+    await upsertNote(full);
+    // Note: intentionally does NOT trigger a full renderCurrentTab() — the flow/memo
+    // editors manage their own live rendering (renderCanvas/renderMemoPreview) and
+    // would have their transient edit state wiped by a full re-render on every save.
+  }
+  async function deleteNoteById(id){
+    if(state.storageMode==='db'){ await state.dbCap.collection('notes').doc(id).delete(); }
+    else { markDeleted(id, state.notes.find(function(n){return n.id===id;})); state.notes = state.notes.filter(function(n){return n.id!==id;}); saveLocalAll(); window.App.renderCurrentTab(); }
+  }
+  async function upsertCategory(cat){
+    cat = Object.assign({}, cat, {updatedAt: nowIso()});
+    if(state.storageMode==='db'){
+      var id = cat.id || uid();
+      var body = Object.assign({}, cat); delete body.id;
+      await state.dbCap.collection('categories').doc(id).set(body);
+      return id;
+    } else {
+      var id2 = cat.id || uid();
+      var full = Object.assign({}, cat, {id:id2});
+      var idx = state.categories.findIndex(function(c){return c.id===id2;});
+      if(idx>=0) state.categories[idx]=full; else state.categories.push(full);
+      saveLocalAll(); window.App.renderCurrentTab();
+      return id2;
+    }
+  }
+  async function deleteCategoryById(id){
+    var orphans = state.notes.filter(function(n){ return n.categoryId===id; });
+    if(state.storageMode==='db'){
+      for(var i=0;i<orphans.length;i++){ var b=Object.assign({}, orphans[i], {categoryId:''}); delete b.id; await state.dbCap.collection('notes').doc(orphans[i].id).set(b); }
+      await state.dbCap.collection('categories').doc(id).delete();
+    } else {
+      orphans.forEach(function(n){ n.categoryId=''; n.updatedAt = nowIso(); });
+      markDeleted(id, state.categories.find(function(c){return c.id===id;}));
+      state.categories = state.categories.filter(function(c){return c.id!==id;});
+      saveLocalAll(); window.App.renderCurrentTab();
+    }
+  }
+  async function saveSettings(patch){
+    state.settings = Object.assign({}, state.settings, patch, {updatedAt: nowIso()});
+    if(state.storageMode==='db'){ await state.dbCap.doc('settings/print').set(state.settings); }
+    else { saveLocalAll(); window.App.renderCurrentTab(); }
+  }
+  // Same, but without the re-render: for flags set from inside a live editor (which a
+  // full re-render would tear down mid-edit), such as "the hint has been seen".
+  function saveSettingsQuiet(patch){
+    state.settings = Object.assign({}, state.settings, patch, {updatedAt: nowIso()});
+    if(state.storageMode==='db'){ try{ state.dbCap.doc('settings/print').set(state.settings); }catch(e){} }
+    else saveLocalAll();
+  }
+
+  // ---------- toast ----------
+  var toastTimer;
+  function showToast(msg, type){
+    var el = document.getElementById('toast');
+    el.textContent = msg;
+    el.className = 'toast show' + (type==='error' ? ' error' : '');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function(){ el.classList.remove('show'); }, 3000);
+  }
+
+  function catById(id){ return state.categories.find(function(c){return c.id===id;}); }
+
+  // Custom confirm/prompt dialogs — some hosts sandbox out window.confirm/prompt
+  // (they silently no-op or always return false), so all delete/label flows use these instead.
+  function lnConfirm(message){
+    return new Promise(function(resolve){
+      var ov = document.createElement('div'); ov.className='modalOverlay';
+      ov.innerHTML = '<div class="modalBox"><div class="modalMsg"></div><div class="modalBtns"><button class="btn" data-a="cancel">キャンセル</button><button class="btn primary" data-a="ok">OK</button></div></div>';
+      ov.querySelector('.modalMsg').textContent = message;
+      document.body.appendChild(ov);
+      function done(v){ if(ov.parentNode) document.body.removeChild(ov); resolve(v); }
+      ov.addEventListener('click', function(e){
+        if(e.target===ov){ done(false); return; }
+        var b = e.target.closest('button'); if(!b) return;
+        done(b.dataset.a==='ok');
+      });
+      var okBtn = ov.querySelector('[data-a="ok"]');
+      if(okBtn) okBtn.focus();
+    });
+  }
+  function lnPrompt(message, defVal){
+    return new Promise(function(resolve){
+      var ov = document.createElement('div'); ov.className='modalOverlay';
+      ov.innerHTML = '<div class="modalBox"><div class="modalMsg"></div><input type="text" class="modalInput"><div class="modalBtns"><button class="btn" data-a="cancel">キャンセル</button><button class="btn primary" data-a="ok">OK</button></div></div>';
+      ov.querySelector('.modalMsg').textContent = message;
+      var input = ov.querySelector('.modalInput');
+      input.value = defVal||'';
+      document.body.appendChild(ov);
+      input.focus(); input.select();
+      function done(v){ if(ov.parentNode) document.body.removeChild(ov); resolve(v); }
+      ov.addEventListener('click', function(e){
+        if(e.target===ov){ done(null); return; }
+        var b = e.target.closest('button'); if(!b) return;
+        done(b.dataset.a==='ok' ? input.value : null);
+      });
+      input.addEventListener('keydown', function(e){
+        if(e.key==='Enter'){ e.preventDefault(); done(input.value); }
+        else if(e.key==='Escape'){ done(null); }
+      });
+    });
+  }
+
+  // A prompt with a third button: OK / キャンセル / 削除. Resolves to the typed text,
+  // null when cancelled, or the string "__delete__" — so deleting something no longer
+  // means typing a magic word into the box.
+  function lnPromptOrDelete(message, defVal, delLabel){
+    return new Promise(function(resolve){
+      var ov = document.createElement('div'); ov.className='modalOverlay';
+      ov.innerHTML = '<div class="modalBox"><div class="modalMsg"></div><input type="text" class="modalInput">' +
+        '<div class="modalBtns" style="justify-content:space-between;">' +
+          '<button class="btn danger" data-a="del">'+(delLabel||'削除')+'</button>' +
+          '<div style="display:flex; gap:8px;"><button class="btn" data-a="cancel">キャンセル</button><button class="btn primary" data-a="ok">OK</button></div>' +
+        '</div></div>';
+      ov.querySelector('.modalMsg').textContent = message;
+      var input = ov.querySelector('.modalInput');
+      input.value = defVal||'';
+      document.body.appendChild(ov);
+      input.focus(); input.select();
+      function done(v){ if(ov.parentNode) document.body.removeChild(ov); resolve(v); }
+      ov.addEventListener('click', function(e){
+        if(e.target===ov){ done(null); return; }
+        var b = e.target.closest('button'); if(!b) return;
+        if(b.dataset.a==='ok') done(input.value);
+        else if(b.dataset.a==='del') done('__delete__');
+        else done(null);
+      });
+      input.addEventListener('keydown', function(e){
+        if(e.key==='Enter'){ e.preventDefault(); done(input.value); }
+        else if(e.key==='Escape'){ done(null); }
+      });
+    });
+  }
+
+  // Shared cursor-insertion helpers for any textarea (node text, annotation text, memo
+  // body) — used both by editor-specific toolbars and by the global keyboard-assist bar.
+  function insertAtCursor(ta, str){
+    var s=ta.selectionStart, e=ta.selectionEnd;
+    var v=ta.value;
+    ta.value = v.slice(0,s)+str+v.slice(e);
+    var cur = s+str.length;
+    ta.focus(); ta.setSelectionRange(cur,cur);
+    ta.dispatchEvent(new Event('input', {bubbles:true}));
+  }
+  function wrapSelection(ta, open, close){
+    var s=ta.selectionStart, e=ta.selectionEnd;
+    var v=ta.value;
+    var sel = v.slice(s,e);
+    ta.value = v.slice(0,s)+open+sel+close+v.slice(e);
+    var cur = sel ? s+sel.length+open.length+close.length : s+open.length;
+    ta.focus(); ta.setSelectionRange(cur,cur);
+    ta.dispatchEvent(new Event('input', {bubbles:true}));
+  }
+
+  // A row of quick-insert buttons (bullets, arrows, checkboxes, key-brackets...) that
+  // docks just above the on-screen keyboard whenever a flow box / annotation / memo
+  // textarea is focused — any textarea marked class="assistTa" gets it automatically.
+  function setupKeyboardAssist(){
+    var bar = document.getElementById('kbdAssist');
+    if(!bar) return;
+    function targetTa(){
+      var el = document.activeElement;
+      return (el && el.tagName==='TEXTAREA' && el.classList.contains('assistTa')) ? el : null;
+    }
+    // Sit the bar exactly on top of the keyboard. Measuring the gap from the bottom of
+    // the layout viewport left a strip of empty page between the bar and the keyboard
+    // (the layout viewport can be taller than the window inside an app's web view), so
+    // the bar is pinned to the bottom edge of the VISUAL viewport instead.
+    function position(){
+      if(bar.hidden) return;
+      var vv = window.visualViewport;
+      if(!vv){ bar.style.top='auto'; bar.style.bottom='0px'; return; }
+      var h = bar.offsetHeight || 48;
+      bar.style.bottom = 'auto';
+      bar.style.top = Math.max(0, Math.round(vv.offsetTop + vv.height - h)) + 'px';
+      if(window.LN && window.LN.onKeyboardGeometry) window.LN.onKeyboardGeometry();
+    }
+    window.LN.kbdAssistHeight = function(){ return bar.hidden ? 0 : (bar.offsetHeight||0); };
+    if(window.visualViewport){
+      window.visualViewport.addEventListener('resize', position);
+      window.visualViewport.addEventListener('scroll', position);
+    }
+    window.addEventListener('resize', position);
+    // Capture-phase focus/blur (rather than the bubbling focusin/focusout) — more
+    // reliably observed at the document level across this app's nested pointer-event
+    // handling than the bubbling variants.
+    document.addEventListener('focus', function(e){
+      if(e.target && e.target.tagName==='TEXTAREA' && e.target.classList.contains('assistTa')){
+        bar.hidden = false;
+        position();
+      }
+    }, true);
+    document.addEventListener('blur', function(e){
+      if(e.target && e.target.tagName==='TEXTAREA' && e.target.classList.contains('assistTa')){
+        setTimeout(function(){ if(!targetTa()) bar.hidden = true; }, 80);
+      }
+    }, true);
+    // mousedown (not click) with preventDefault keeps focus on the textarea instead of
+    // moving it to the button, so selectionStart/End stay valid for insertion.
+    bar.addEventListener('mousedown', function(e){ e.preventDefault(); });
+    bar.addEventListener('click', function(e){
+      var btn = e.target.closest('button[data-act]');
+      if(!btn) return;
+      var ta = targetTa();
+      if(!ta) return;
+      var act = btn.dataset.act;
+      if(act==='undo'){ try{ document.execCommand('undo'); }catch(err){} }
+      else if(act==='redo'){ try{ document.execCommand('redo'); }catch(err){} }
+      else if(act==='ins'){ insertAtCursor(ta, btn.dataset.val); }
+      else if(act==='wrap'){ wrapSelection(ta, '【', '】'); }
+    });
+  }
+
+  window.LN = { state:state, ICONS:ICONS, esc:esc, uid:uid, nowIso:nowIso, fmtDate:fmtDate, nowStamp:nowStamp,
+    byOrder:byOrder, clamp:clamp, renderRichText:renderRichText, renderAnnotationHtml:renderAnnotationHtml, plainSnippet:plainSnippet, PALETTE:PALETTE, wrapEdgeLabel:wrapEdgeLabel, ensureFlowEdgeGaps:ensureFlowEdgeGaps,
+    fullWidthMm:fullWidthMm, pageHeightMm:pageHeightMm, pagePitchMm:pagePitchMm, pageIndexOf:pageIndexOf,
+    bandTopMm:bandTopMm, bandBottomMm:bandBottomMm, placeInBand:placeInBand, snapOutOfDeadZones:snapOutOfDeadZones,
+    nodeWmm:nodeWmm, nodeHmm:nodeHmm, dividerWmm:dividerWmm, colWidthMm:colWidthMm, colXMm:colXMm, COL_GAP_MM:COL_GAP_MM,
+    frameKindOf:frameKindOf, annoHeightMm:annoHeightMm, shiftContentBelow:shiftContentBelow, normalizeFlowGeometry:normalizeFlowGeometry,
+    insertAtCursor:insertAtCursor, wrapSelection:wrapSelection, setupKeyboardAssist:setupKeyboardAssist,
+    DEFAULT_SETTINGS:DEFAULT_SETTINGS, MM_PER_NODE_W:MM_PER_NODE_W, MM_PER_NODE_H:MM_PER_NODE_H,
+    upsertNote:upsertNote, patchNote:patchNote, deleteNoteById:deleteNoteById, upsertCategory:upsertCategory,
+    deleteCategoryById:deleteCategoryById, saveSettings:saveSettings, saveSettingsQuiet:saveSettingsQuiet, showToast:showToast, catById:catById,
+    confirm:lnConfirm, prompt:lnPrompt, promptOrDelete:lnPromptOrDelete,
+    getTombstones:getTombstones, setTombstones:setTombstones, markDeleted:markDeleted,
+    saveLocalAll:saveLocalAll, saveLocalQuiet:saveLocalQuiet,
+    initStorage:initStorage };
+})();
+</script>
+<script>
+(function(){
+  "use strict";
+  var LN = window.LN, state = LN.state, ICONS = LN.ICONS, esc = LN.esc, byOrder = LN.byOrder;
+
+  function setMain(flush){ document.getElementById('view').className = flush ? 'flush' : ''; }
+
+  function renderCurrentTab(){
+    document.querySelectorAll('nav.tabbar button').forEach(function(b){
+      b.classList.toggle('active', b.dataset.tab===state.tab);
+    });
+    var view = document.getElementById('view');
+    var topbar = document.getElementById('topbar');
+    if(!state.ready){ setMain(false); view.innerHTML = '<div class="empty"><p>読み込み中…</p></div>'; return; }
+
+    if(state.tab==='flow' || state.tab==='memo'){
+      // editor views manage their own topbar via App.renderTopbarFor*
+    } else {
+      topbar.innerHTML = '<svg class="leafmark" onclick="App.goTab(\'list\')" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18C4 9 11 4 20 4c0 9-5 16-14 16-2 0-3-.5-3-2Z"/><path d="M4 18c4-3 7-7 9-12"/></svg>' +
+        '<div><h1>リーフノート</h1><div class="sub">'+({list:'メモを整理して、印刷用にレイアウト', add:'新しいメモを作る', categories:'カテゴリの管理', print:'印刷レイアウト', settings:'設定・バックアップ'}[state.tab]||'')+'</div></div>';
+    }
+
+    if(state.tab==='list'){ setMain(true); view.innerHTML = renderList(); wireList(); }
+    else if(state.tab==='add'){ setMain(false); view.innerHTML = renderChooser(); }
+    else if(state.tab==='categories'){ setMain(false); view.innerHTML = renderCategories(); }
+    else if(state.tab==='print'){ setMain(false); view.innerHTML = App.renderPrint(); App.wirePrint && App.wirePrint(); }
+    else if(state.tab==='settings'){ setMain(false); view.innerHTML = renderSettings(); wireSettings(); }
+    else if(state.tab==='flow'){ App.openFlowEditor(state.openId); }
+    else if(state.tab==='memo'){ App.openMemoEditor(state.openId); }
+  }
+
+  // ---------- LIST + SIDE INDEX ----------
+  function visibleNotes(){
+    var list = state.notes.slice().sort(byOrder);
+    if(state.filterCat!=='all') list = list.filter(function(n){ return (n.categoryId||'')===state.filterCat; });
+    if(state.searchQ){
+      var q = state.searchQ.toLowerCase();
+      list = list.filter(function(n){
+        var hay = (n.title||'') + ' ' + (n.content||'') + ' ' + (n.nodes? n.nodes.map(function(nd){
+          return (nd.text||'') + ' ' + (nd.annotations||[]).map(function(a){return a.text||'';}).join(' ');
+        }).join(' '):'');
+        return hay.toLowerCase().indexOf(q)>=0;
+      });
+    }
+    return list;
+  }
+
+  function tabLabel(name){
+    var s = String(name||'');
+    return s.length>5 ? esc(s.slice(0,5))+'…' : esc(s);
+  }
+  function sideIndexHtml(){
+    var cats = state.categories.slice().sort(byOrder);
+    var tabs = '<button class="tab'+(state.filterCat==='all'?' active':'')+'" onclick="App.setFilter(\'all\')"><span class="lbl">すべて</span></button>';
+    cats.forEach(function(c){
+      tabs += '<button class="tab'+(state.filterCat===c.id?' active':'')+'" title="'+esc(c.name)+'" style="'+(state.filterCat===c.id?('background:'+c.hex+'22;border-color:'+c.hex+';'):'')+'" onclick="App.setFilter(\''+c.id+'\')"><span class="dot" style="background:'+c.hex+'"></span><span class="lbl">'+tabLabel(c.name)+'</span></button>';
+    });
+    tabs += '<button class="tab'+(state.filterCat===''?' active':'')+'" onclick="App.setFilter(\'\')"><span class="lbl">未分類</span></button>';
+    return '<div class="sideindex">'+tabs+'</div>';
+  }
+
+  function renderList(){
+    var search = '<div class="searchbar">'+ICONS.search+'<input type="text" id="searchInput" placeholder="メモを検索" value="'+esc(state.searchQ)+'"></div>';
+    var list = visibleNotes();
+    var main;
+    if(list.length===0){
+      main = search + '<div class="empty"><svg class="icon-big" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 18C4 9 11 4 20 4c0 9-5 16-14 16-2 0-3-.5-3-2Z"/></svg>' +
+        '<p>'+(state.notes.length===0 ? 'メモがまだありません。「追加」からフローかメモを作りましょう。' : '条件に合うメモが見つかりません。')+'</p>' +
+        '<button class="btn primary" onclick="App.goTab(\'add\')">'+ICONS.add+' 新しいメモを作る</button></div>';
+    } else {
+      var rows = list.map(function(n){
+        var cat = LN.catById(n.categoryId);
+        var tag = cat ? '<span class="tag" style="color:'+cat.hex+'">'+esc(cat.name)+'</span>' : '<span class="tag none">未分類</span>';
+        var raw = n.type==='flow' ? (n.nodes||[]).map(function(nd){return nd.text||'';}).join(' / ') : (n.content||'');
+        var snippet = LN.plainSnippet(raw) || '(内容なし)';
+        var typeIcon = n.type==='flow' ? ICONS.flow : ICONS.memo;
+        return '<div class="notecard" onclick="App.openNote(\''+n.id+'\')">' +
+          '<div class="typeicon">'+typeIcon+'</div>' +
+          '<div class="body"><h3>'+esc(n.title||'(無題)')+'</h3><div class="snippet">'+snippet+'</div>' +
+          '<div class="meta">'+tag+'<span class="date">'+LN.fmtDate(n.updatedAt)+'</span></div></div>' +
+          '<button class="del" onclick="event.stopPropagation();App.confirmDeleteNote(\''+n.id+'\')">'+ICONS.trash+'</button>' +
+        '</div>';
+      }).join('');
+      main = search + '<div class="notelist">'+rows+'</div>';
+    }
+    return '<div class="listwrap"><div class="listmain">'+main+'</div>'+sideIndexHtml()+'</div>';
+  }
+  function wireList(){
+    var s = document.getElementById('searchInput');
+    if(s) s.addEventListener('input', function(){ state.searchQ=this.value; renderCurrentTab(); });
+  }
+
+  // ---------- CHOOSER ----------
+  function renderChooser(){
+    return '<div class="chooser">' +
+      '<button class="choosebtn" onclick="App.createNote(\'flow\')">'+ICONS.flow.replace('class="icon"','')+'<div class="t">フローを作る</div><div class="d">手順・作業の流れを箱と矢印で書く</div></button>' +
+      '<button class="choosebtn" onclick="App.createNote(\'memo\')">'+ICONS.memo.replace('class="icon"','')+'<div class="t">メモを書く</div><div class="d">手順ではない、ふつうの文章メモ</div></button>' +
+    '</div>';
+  }
+
+  // ---------- CATEGORIES ----------
+  var newCatColor = LN.PALETTE[5].hex;
+  function renderCategories(){
+    var cats = state.categories.slice().sort(byOrder);
+    var rows = cats.length===0 ? '<div class="hint" style="margin-bottom:16px;">カテゴリがまだありません。下のフォームから追加できます。</div>' :
+      cats.map(function(c,i){
+        var count = state.notes.filter(function(n){return n.categoryId===c.id;}).length;
+        return '<div class="catrow"><span class="dot" style="background:'+c.hex+'"></span><span class="name">'+esc(c.name)+'</span><span class="count">'+count+'件</span>' +
+          '<button class="iconbtn" '+(i===0?'disabled':'')+' onclick="App.moveCategory(\''+c.id+'\',-1)">▲</button>' +
+          '<button class="iconbtn" '+(i===cats.length-1?'disabled':'')+' onclick="App.moveCategory(\''+c.id+'\',1)">▼</button>' +
+          '<button class="iconbtn" onclick="App.confirmDeleteCategory(\''+c.id+'\',\''+esc(c.name).replace(/'/g,"\\'")+'\')">'+ICONS.trash+'</button></div>';
+      }).join('');
+    var swatches = LN.PALETTE.map(function(p){
+      return '<button type="button" class="swatch'+(p.hex===newCatColor?' selected':'')+'" style="background:'+p.hex+'" title="'+p.name+'" onclick="App.pickCatColor(\''+p.hex+'\')"></button>';
+    }).join('');
+    return '<div class="section-title">カテゴリ一覧</div>' + rows +
+      '<div class="card" style="margin-top:18px;">' +
+        '<div class="field"><label for="catName">新しいカテゴリ名</label><input type="text" id="catName" placeholder="例:開店準備"></div>' +
+        '<div class="field"><label>色</label><div class="palette">'+swatches+'</div></div>' +
+        '<button class="btn primary block" onclick="App.addCategory()">'+ICONS.add+' カテゴリを追加</button>' +
+      '</div>';
+  }
+
+  // ---------- SETTINGS ----------
+  function renderSettings(){
+    var synced = window.LNSync && window.LNSync.isConfigured();
+    var modeLabel = state.storageMode==='db' ? 'このアーティファクトのアカウント(どの端末からでも同じデータ)'
+      : (synced ? 'この端末 + Googleドライブ(他の端末とも同じデータ)' : 'この端末のみ(他の端末とは同期されません)');
+    return '<div class="section-title">データの保存先</div><div class="card">'+modeLabel+'</div>' +
+      (window.LNSync ? window.LNSync.renderSettingsCard() : '') +
+      '<div class="section-title">バックアップ</div>' +
+      '<div class="card"><p class="hint" style="margin:0 0 12px;">大事なメモなので、ときどきバックアップの保存をおすすめします。</p>' +
+        '<div class="row"><button class="btn block" onclick="App.exportBackup()">エクスポート</button><button class="btn block" onclick="document.getElementById(\'importInput\').click()">インポート</button></div>' +
+        '<input type="file" id="importInput" accept="application/json" hidden></div>' +
+      '<div class="section-title">データの削除</div>' +
+      '<div class="card"><p class="hint" style="margin:0 0 12px;">すべてのメモとカテゴリを削除します。元に戻せません。</p>' +
+        '<button class="btn danger block" onclick="App.confirmWipeAll()">'+ICONS.trash+' すべてのデータを削除</button></div>';
+  }
+  function wireSettings(){
+    var imp = document.getElementById('importInput');
+    if(!imp) return;
+    imp.addEventListener('change', function(e){
+      var file = e.target.files && e.target.files[0];
+      if(!file) return;
+      var reader = new FileReader();
+      reader.onload = async function(){
+        try{
+          var payload = JSON.parse(reader.result);
+          var ok = await LN.confirm('現在のメモとカテゴリを、バックアップの内容で上書きします。よろしいですか?');
+          if(!ok) return;
+          await App.importBackup(payload);
+          LN.showToast('データを復元しました');
+        }catch(err){ LN.showToast('ファイルの読み込みに失敗しました','error'); }
+      };
+      reader.readAsText(file);
+      imp.value='';
+    });
+  }
+
+  window.App = window.App || {};
+  Object.assign(window.App, {
+    renderCurrentTab: renderCurrentTab,
+    goTab: function(tab){ state.tab = tab; state.openId = tab==='add'||tab==='list' ? null : state.openId; renderCurrentTab(); },
+    setFilter: function(id){ state.filterCat = id; renderCurrentTab(); },
+    openNote: function(id){
+      var n = state.notes.find(function(x){return x.id===id;});
+      if(!n) return;
+      state.openId = id;
+      state.tab = n.type==='flow' ? 'flow' : 'memo';
+      renderCurrentTab();
+    },
+    confirmDeleteNote: async function(id, andGoList){
+      var n = state.notes.find(function(x){return x.id===id;});
+      var ok = await LN.confirm('「'+(n?(n.title||'無題'):'このメモ')+'」を削除します。よろしいですか?');
+      if(!ok) return;
+      await LN.deleteNoteById(id);
+      LN.showToast('削除しました');
+      if(andGoList) App.goTab('list'); else renderCurrentTab();
+    },
+    createNote: function(type){
+      var order = Math.max(0, Math.max.apply(null, state.notes.map(function(n){return n.order||0;}).concat([0]))) + 1;
+      var base = {type:type, title:'', categoryId: state.filterCat!=='all'?state.filterCat:'', order:order};
+      if(type==='flow') base.nodes = []; else base.content='';
+      LN.upsertNote(base).then(function(id){
+        state.openId = id; state.tab = type;
+        renderCurrentTab();
+      });
+    },
+    pickCatColor: function(hex){ newCatColor = hex; renderCurrentTab(); },
+    addCategory: function(){
+      var nameEl = document.getElementById('catName');
+      var name = nameEl.value.trim();
+      if(!name){ LN.showToast('カテゴリ名を入力してください','error'); return; }
+      var order = Math.max(0, Math.max.apply(null, state.categories.map(function(c){return c.order||0;}).concat([0]))) + 1;
+      LN.upsertCategory({name:name, hex:newCatColor, order:order}).then(function(){ LN.showToast('カテゴリを追加しました'); renderCurrentTab(); });
+    },
+    moveCategory: function(id, dir){
+      var list = state.categories.slice().sort(byOrder);
+      var idx = list.findIndex(function(c){return c.id===id;});
+      var sw = idx+dir;
+      if(idx<0||sw<0||sw>=list.length) return;
+      var a=list[idx], b=list[sw]; var oa=a.order||0, ob=b.order||0;
+      LN.upsertCategory(Object.assign({},a,{order:ob}));
+      LN.upsertCategory(Object.assign({},b,{order:oa}));
+    },
+    confirmDeleteCategory: async function(id,name){
+      var ok = await LN.confirm('カテゴリ「'+name+'」を削除します。このカテゴリのメモは未分類になります。よろしいですか?');
+      if(!ok) return;
+      await LN.deleteCategoryById(id);
+      LN.showToast('カテゴリを削除しました'); renderCurrentTab();
+    },
+    exportBackup: async function(){
+      var payload = {app:'leafnote', version:1, exportedAt: LN.nowIso(), updatedAt: LN.nowIso(),
+                     notes: state.notes, categories: state.categories, settings: state.settings,
+                     deleted: LN.getTombstones ? LN.getTombstones() : {}};
+      var fname = 'leafnote-backup-'+LN.nowStamp()+'.json';
+      var text = JSON.stringify(payload,null,2);
+      if(state.downloadsCap){
+        try{ await state.downloadsCap.save({filename:fname, data:text}); LN.showToast('バックアップを保存しました'); }
+        catch(e){ if(e && e.code==='declined') return; LN.showToast('保存に失敗しました','error'); }
+        return;
+      }
+      try{
+        var blob = new Blob([text], {type:'application/json'});
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url; a.download = fname; a.rel = 'noopener';
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        setTimeout(function(){ URL.revokeObjectURL(url); }, 5000);
+        LN.showToast('バックアップを保存しました');
+      }catch(e2){ LN.showToast('保存に失敗しました','error'); }
+    },
+    importBackup: async function(payload){
+      var catMap = {};
+      if(state.storageMode==='db'){
+        for(var i=0;i<state.notes.length;i++){ await state.dbCap.collection('notes').doc(state.notes[i].id).delete(); }
+        for(var j=0;j<state.categories.length;j++){ await state.dbCap.collection('categories').doc(state.categories[j].id).delete(); }
+        var cats = payload.categories||[];
+        for(var k=0;k<cats.length;k++){ var c=Object.assign({},cats[k]); var oldId=c.id; delete c.id; var ref=await state.dbCap.collection('categories').add(c); if(oldId) catMap[oldId]=ref.id; }
+        var notes = payload.notes||[];
+        for(var m=0;m<notes.length;m++){ var n=Object.assign({},notes[m]); delete n.id; if(n.categoryId && catMap[n.categoryId]) n.categoryId=catMap[n.categoryId]; await state.dbCap.collection('notes').add(n); }
+        if(payload.settings) await state.dbCap.doc('settings/print').set(Object.assign({},LN.DEFAULT_SETTINGS,payload.settings));
+      } else {
+        state.categories = payload.categories||[]; state.notes = payload.notes||[];
+        state.settings = Object.assign({}, LN.DEFAULT_SETTINGS, payload.settings||{});
+        if(payload.deleted && LN.setTombstones) LN.setTombstones(payload.deleted);
+        (function(){ try{ localStorage.setItem('leafnote_data_v2', JSON.stringify({notes:state.notes,categories:state.categories,settings:state.settings})); }catch(e){} })();
+        if(window.LNSync) window.LNSync.schedulePush();
+      }
+      state.tab='list'; renderCurrentTab();
+    },
+    confirmWipeAll: async function(){
+      var ok1 = await LN.confirm('本当にすべてのメモとカテゴリを削除しますか?この操作は元に戻せません。');
+      if(!ok1) return;
+      var ok2 = await LN.confirm('もう一度確認します。全データを削除してよろしいですか?');
+      if(!ok2) return;
+      (async function(){
+        if(state.storageMode==='db'){
+          for(var i=0;i<state.notes.length;i++){ await state.dbCap.collection('notes').doc(state.notes[i].id).delete(); }
+          for(var j=0;j<state.categories.length;j++){ await state.dbCap.collection('categories').doc(state.categories[j].id).delete(); }
+        } else {
+          if(LN.markDeleted){ state.notes.forEach(function(n){ LN.markDeleted(n.id, n); }); state.categories.forEach(function(c){ LN.markDeleted(c.id, c); }); }
+          state.notes=[]; state.categories=[];
+          try{ localStorage.removeItem('leafnote_data_v2'); }catch(e){}
+          if(window.LNSync) window.LNSync.schedulePush();
+        }
+        LN.showToast('すべてのデータを削除しました'); renderCurrentTab();
+      })();
+    }
+  });
+})();
+</script>
+<script>
+(function(){
+  "use strict";
+  var LN = window.LN, state = LN.state, ICONS = LN.ICONS, esc = LN.esc;
+  var BASE_PX = 3.2; // px per mm at zoom=1
+  var GAP_MM = 9;
+  var HOLD_MS = 220, MOVE_TH = 13;
+
+  var FE = null; // {note, zoom, panX, panY, editingNodeId}
+
+  function mmToPx(mm){ return mm*BASE_PX; }
+  function pxToMm(px){ return px/BASE_PX; }
+  // Paper geometry comes from LN so the editor and the printer can never disagree.
+  var fullWidthMm = LN.fullWidthMm, pageHeightMm = LN.pageHeightMm;
+  var nodeW = LN.nodeWmm, nodeH = LN.nodeHmm, dividerW = LN.dividerWmm;
+  function nodesArr(){ return FE.note.nodes || (FE.note.nodes=[]); }
+  function edgesArr(){ return FE.note.edges || (FE.note.edges=[]); }
+  function dividersArr(){ return FE.note.dividers || (FE.note.dividers=[]); }
+  function nodeById(id){ return nodesArr().find(function(n){return n.id===id;}); }
+
+  // A wrapped arrow-label callout needs a certain amount of vertical room to
+  // stay fully inside the gap between its two boxes; otherwise it paints partly
+  // underneath them and gets hidden (their background is opaque, drawn after
+  // the arrow layer). Rather than shrink or truncate the label, push the lower
+  // box (and everything below it) down just enough to fit it — the arrow
+  // "gets longer" automatically when a long/crowded label needs the space.
+  // (Shared logic lives in LN.ensureFlowEdgeGaps so the print engine, which
+  // has no access to this editor's FE state, can apply the same self-healing.)
+  function ensureGapForEdgeLabel(e){
+    return LN.ensureFlowEdgeGaps({nodes:nodesArr(), edges:[e], dividers:dividersArr()});
+  }
+  function ensureAllEdgeGaps(){
+    var a = LN.ensureFlowEdgeGaps(FE.note);
+    var b = LN.snapOutOfDeadZones(FE.note);
+    return a || b;
+  }
+
+  // The steps that a box flows down into. Flicking down from the same box twice used to
+  // drop the second step on top of the first; instead they share one row, so the row is
+  // split into as many columns as there are steps and they sit side by side.
+  function downChildrenOf(parentId){
+    var parent = nodeById(parentId);
+    var ids = edgesArr().filter(function(e){ return e.vertical && e.from===parentId; }).map(function(e){ return e.to; });
+    return nodesArr().filter(function(n){ return ids.indexOf(n.id)>=0 && (!parent || n.y >= parent.y); });
+  }
+  function childEdgesOf(id){ return edgesArr().filter(function(e){ return e.vertical && e.from===id; }); }
+  function hasNextSteps(id){ return childEdgesOf(id).length > 0; }
+  function incomingCount(id){ return edgesArr().filter(function(e){ return e.vertical && e.to===id; }).length; }
+  // Everything that hangs below a box, so a column can be moved together with the steps
+  // that belong to it. A step several columns feed into (a convergence) belongs to no
+  // single column, so it is left where it is.
+  function descendantsOf(rootId){
+    var seen={}, out=[], q=[rootId];
+    seen[rootId]=true;
+    while(q.length){
+      var id=q.shift();
+      childEdgesOf(id).forEach(function(e){
+        if(seen[e.to]) return;
+        seen[e.to]=true;
+        q.push(e.to);
+        if(incomingCount(e.to)>1) return;
+        var n=nodeById(e.to);
+        if(n) out.push(n);
+      });
+    }
+    return out;
+  }
+  function shiftNodeX(n, dx){
+    if(!dx) return;
+    n.x = LN.clamp(n.x + dx, 0, Math.max(0, fullWidthMm()-nodeW(n)));
+    (n.annotations||[]).forEach(function(a){ a.x = LN.clamp(a.x + dx, 0, Math.max(0, fullWidthMm()-14)); });
+  }
+  function relayoutRow(parentId){
+    var kids = downChildrenOf(parentId).filter(function(k){ return k.full; });
+    if(!kids.length) return;
+    var cols = kids.length;
+    var rowY = Math.min.apply(null, kids.map(function(k){ return k.y; }));
+    kids.forEach(function(k, i){
+      var nx = LN.colXMm(i, cols), dx = nx - k.x;
+      var kidIds = kids.map(function(x){ return x.id; });
+      k.cols = cols; k.y = rowY;
+      shiftNodeX(k, dx);
+      k.x = nx;
+      // The steps under this column travel with it, so a branch that continues further
+      // down stays lined up under its own heading.
+      if(dx) descendantsOf(k.id).forEach(function(d){ if(kidIds.indexOf(d.id)<0) shiftNodeX(d, dx); });
+    });
+  }
+
+  function persistFlow(){
+    // geomV2 must be saved too: it records that this note has been brought onto the
+    // current paper geometry, so the one-time migration never runs against itself.
+    LN.patchNote(FE.note.id, {nodes: nodesArr(), edges: edgesArr(), dividers: dividersArr(), title: FE.note.title, categoryId: FE.note.categoryId, titleNodeId: FE.note.titleNodeId, geomV2: !!FE.note.geomV2});
+  }
+
+  // Keeps the canvas heading box in sync with the flow's name (one-way: name -> box).
+  // Creates the heading node the first time a title is set, and updates its text
+  // whenever the title changes. Returns true if something changed (caller should persist).
+  function syncTitleNode(){
+    var tid = FE.note.titleNodeId;
+    var node = tid ? nodeById(tid) : null;
+    var titleText = (FE.note.title||'').trim();
+    if(!node){
+      if(!titleText) return false;
+      // The heading always spans the full width, left-aligned like a page title.
+      var others = nodesArr();
+      var headH = 11, shift = headH + GAP_MM; // a title line, not a full-size step box
+      var y = 0;
+      if(others.length){
+        // Make room above existing content. If there isn't any (e.g. a node already
+        // sits at the very top), nudge everything else down just enough, keeping
+        // their relative layout intact.
+        var minY = Math.min.apply(null, others.map(function(n){return n.y;}));
+        if(minY < y + shift) LN.shiftContentBelow(FE.note, -1e9, (y+shift)-minY);
+      }
+      node = {id:LN.uid(), x:0, y:y, h:headH, full:true, text:FE.note.title||'', isTitleNode:true};
+      nodesArr().unshift(node);
+      FE.note.titleNodeId = node.id;
+      return true;
+    }
+    var changed=false;
+    if(node.text !== (FE.note.title||'')){ node.text = FE.note.title||''; changed=true; }
+    if(!node.isTitleNode){ node.isTitleNode=true; changed=true; }
+    if(!node.full){ node.full=true; changed=true; }
+    if((node.h||0) > 12){ node.h=11; changed=true; }
+    // The title is its own frame kind now, so it no longer borrows the "heading" style.
+    if(node.style){ delete node.style; changed=true; }
+    if(node.x!==0){ node.x=0; changed=true; }
+    return changed;
+  }
+
+  function openFlowEditor(id){
+    var n = state.notes.find(function(x){return x.id===id;});
+    if(!n){ App.goTab('list'); return; }
+    FE = {note: JSON.parse(JSON.stringify(n)), zoom:1, panX:0, panY:0, editingNodeId:null, selectedNodeId:null, selectedAnnoId:null, lastTap:null};
+    if(!FE.note.nodes) FE.note.nodes=[];
+    if(!FE.note.edges) FE.note.edges=[];
+    if(!FE.note.dividers) FE.note.dividers=[];
+    // Bring layouts from older versions onto the current paper geometry.
+    var normalized = LN.normalizeFlowGeometry(FE.note);
+    document.getElementById('topbar').innerHTML =
+      '<button class="backbtn" onclick="App.closeEditor()">'+ICONS.back+'</button>' +
+      '<input class="titlein" id="flowTitle" placeholder="フローの名前" value="'+esc(FE.note.title||'')+'">' +
+      '<button class="tbaction" onclick="App.confirmDeleteNote(\''+FE.note.id+'\', true)">削除</button>';
+    document.getElementById('flowTitle').addEventListener('change', function(){ if(!FE) return; FE.note.title=this.value; syncTitleNode(); persistFlow(); renderCanvas(); });
+
+    var catOpts = '<option value="">未分類</option>' + state.categories.slice().sort(LN.byOrder).map(function(c){
+      return '<option value="'+c.id+'"'+(c.id===(FE.note.categoryId||'')?' selected':'')+'>'+esc(c.name)+'</option>';
+    }).join('');
+
+    var view = document.getElementById('view');
+    view.className='flush';
+    view.innerHTML =
+      '<div style="display:flex; flex-direction:column; height:100%;">' +
+      '<div class="canvasToolbar"><select id="flowCat" style="border:1px solid var(--line);border-radius:8px;padding:5px 6px;background:var(--surface-2);color:var(--ink);font-size:12px;">'+catOpts+'</select>' +
+        '<span class="spacer" style="flex:1;"></span>' +
+        '<div class="zoombtns"><button class="zoombtn" onclick="App.toggleHint()" title="操作のヒント">?</button><button class="zoombtn" onclick="App.addDivider()" title="区切り線を追加">―</button><button class="zoombtn" onclick="App.flowZoom(-1)">'+ICONS.zout+'</button><button class="zoombtn" onclick="App.flowZoom(1)">'+ICONS.zin+'</button></div></div>' +
+      // Shown the first time only — after that the "?" button brings it back, so the
+      // paper isn't permanently squeezed by a reference card.
+      '<div class="canvasHint" id="canvasHint"'+(state.settings.hintSeen ? ' hidden' : '')+'>↓スワイプで次の工程(同じ箱から2回目以降は横並び)・斜め横スワイプで枝分かれ・箱や補足をタップすると上に H(枠) ✥(移動) +(補足) ✕(削除)・見出しはダブルタップで枠変更<button class="hintClose" onclick="App.toggleHint()" title="閉じる">✕</button></div>' +
+      '<div class="canvasViewportOuter"><div class="canvasViewport" id="canvasViewport"><div class="canvasWorld" id="canvasWorld"></div></div></div>' +
+      '<button class="canvasFab" onclick="App.addFreeNode()">'+ICONS.plus+'</button>' +
+      '</div>';
+    document.getElementById('flowCat').addEventListener('change', function(){ FE.note.categoryId=this.value; persistFlow(); });
+    updateCanvasViewportWidth();
+    FE.panY = mmToPx(state.settings.holeMm||16)*FE.zoom;
+    clampPan();
+    wireViewportPan();
+    // When the keyboard opens (or the assist bar appears), keep the box being edited in
+    // the part of the screen that is still visible.
+    LN.onKeyboardGeometry = function(){ if(FE && FE.editingNodeId) bringNodeIntoView(FE.editingNodeId); };
+    if(window.visualViewport && !window.__lnVvHooked){
+      window.__lnVvHooked = true;
+      window.visualViewport.addEventListener('resize', function(){ if(LN.onKeyboardGeometry) LN.onKeyboardGeometry(); });
+    }
+    var titleSynced = (FE.note.title||'').trim() ? syncTitleNode() : false;
+    renderCanvas();
+    if(titleSynced || normalized) persistFlow();
+    if(!state.settings.hintSeen) LN.saveSettingsQuiet({hintSeen:true});
+    if(nodesArr().length===0){ setTimeout(function(){ addFreeNode(true); }, 50); }
+  }
+
+  function toggleHint(){
+    var el = document.getElementById('canvasHint');
+    if(el) el.hidden = !el.hidden;
+  }
+
+  function applyWorldTransform(){
+    var w = document.getElementById('canvasWorld');
+    if(w) w.style.transform = 'translate('+FE.panX+'px,'+FE.panY+'px) scale('+FE.zoom+')';
+  }
+
+  // The editing area is the sheet itself: as wide as the paper (never wider than the
+  // screen), with the paper's left edge pinned to the left of the view. Because world
+  // x=0 is the printable area's left edge, the paper starts at world -marginMm, so the
+  // pan offset carries exactly that margin — what you edit sits where it will print.
+  function updateCanvasViewportWidth(){
+    var vp = document.getElementById('canvasViewport');
+    if(!vp) return;
+    var outer = vp.parentElement;
+    var avail = outer ? outer.getBoundingClientRect().width : mmToPx(86)*FE.zoom;
+    vp.style.width = Math.min(avail, paperWpx()) + 'px';
+  }
+  function paperWpx(){ return mmToPx(state.settings.paperW||86)*FE.zoom; }
+  function marginPx(){ return mmToPx(state.settings.marginMm||3)*FE.zoom; }
+  // Horizontal panning is clamped to the paper's edges (and locked when the whole width
+  // is visible); vertical panning is free, since a flow grows downwards across sheets.
+  function clampPan(){
+    var vp = document.getElementById('canvasViewport');
+    if(!vp) return;
+    var vw = vp.getBoundingClientRect().width, pw = paperWpx();
+    if(pw <= vw + 0.5) FE.panX = marginPx() + (vw - pw)/2;
+    else FE.panX = LN.clamp(FE.panX, marginPx() - (pw - vw), marginPx());
+    FE.panY = Math.min(FE.panY, mmToPx(state.settings.holeMm||16)*FE.zoom);
+  }
+
+  function rectOf(node){ return {x:mmToPx(node.x), y:mmToPx(node.y), w:mmToPx(nodeW(node)), h:mmToPx(nodeH(node))}; }
+  function rectEdgePoint(rx,ry,rw,rh,tx,ty){
+    var cx=rx+rw/2, cy=ry+rh/2, dx=tx-cx, dy=ty-cy;
+    if(dx===0&&dy===0) return {x:cx,y:cy};
+    var hw=rw/2, hh=rh/2;
+    var sx = dx!==0 ? hw/Math.abs(dx) : Infinity;
+    var sy = dy!==0 ? hh/Math.abs(dy) : Infinity;
+    var s = Math.min(sx,sy);
+    return {x:cx+dx*s, y:cy+dy*s};
+  }
+
+  function annoAnchor(a){ return {x: mmToPx(a.x), y: mmToPx(a.y)+10}; }
+
+  // Draws the physical sheets behind the content: each one with its punch-hole strip,
+  // the same 5mm grid the printer uses, and a visible edge where one sheet ends and the
+  // next begins. Editing then happens literally on the pages that will come out.
+  function renderSheets(contentMaxYmm){
+    var s = state.settings;
+    var paperW = s.paperW||86, paperH = s.paperH||128, holeMm = s.holeMm||16, marginMm = s.marginMm||3, gridMm = s.gridMm||5;
+    var pageH = pageHeightMm();
+    var pages = Math.max(1, LN.pageIndexOf(contentMaxYmm)+1);
+    var html = '';
+    for(var k=0;k<pages;k++){
+      var topMm = LN.bandTopMm(k) - holeMm;  // this sheet's own top edge, in world mm
+      var leftMm = -marginMm;                // sheet's left edge
+      var holes = '';
+      for(var i=0;i<9;i++) holes += '<span></span>';
+      // The grid starts at the sheet's own corner, exactly as the printed page does.
+      html += '<div class="sheetGuide" style="left:'+mmToPx(leftMm)+'px; top:'+mmToPx(topMm)+'px; width:'+mmToPx(paperW)+'px; height:'+mmToPx(paperH)+'px; background-size:'+mmToPx(gridMm)+'px '+mmToPx(gridMm)+'px; background-position:0 0;">' +
+        '<div class="sheetHoles" style="height:'+mmToPx(holeMm)+'px;">'+holes+'</div>' +
+        '<div class="sheetEnd" style="top:'+mmToPx(holeMm+pageH)+'px;"></div>' +
+        '<div class="sheetNo">'+(k+1)+'枚目</div>' +
+        '</div>';
+    }
+    return {html:html, pages:pages};
+  }
+
+  function renderCanvas(){
+    var world = document.getElementById('canvasWorld');
+    if(!world) return;
+    applyWorldTransform();
+    if(ensureAllEdgeGaps()) persistFlow();
+    var nodes = nodesArr(), edges = edgesArr(), dividers = dividersArr();
+    var maxYmm=0;
+    nodes.forEach(function(n){
+      maxYmm=Math.max(maxYmm, n.y+nodeH(n));
+      (n.annotations||[]).forEach(function(a){ maxYmm=Math.max(maxYmm, a.y+LN.annoHeightMm(a)); });
+    });
+    dividers.forEach(function(d){ maxYmm=Math.max(maxYmm, d.y); });
+    var sheets = renderSheets(maxYmm);
+    var svgW = Math.max(mmToPx((state.settings.paperW||86)), 400);
+    var svgH = Math.max(mmToPx(maxYmm+40), mmToPx(sheets.pages*pageHeightMm()));
+    world.style.width = svgW+'px'; world.style.height = svgH+'px';
+
+    var svg = '<svg width="'+svgW+'" height="'+svgH+'"><defs>' +
+      '<marker id="arrowhead" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#555"/></marker>' +
+      '<marker id="annoArrowhead" markerWidth="7" markerHeight="7" refX="5" refY="2.5" orient="auto"><path d="M0,0 L5,2.5 L0,5 Z" fill="#8a8677"/></marker>' +
+      '</defs>';
+    var labels = '';
+    edges.forEach(function(e){
+      var a = nodeById(e.from), b = nodeById(e.to);
+      if(!a||!b) return;
+      var ra=rectOf(a), rb=rectOf(b);
+      var p1, p2;
+      if(e.vertical){
+        // A down-swipe-created arrow runs straight down from the point the user actually
+        // started dragging (not a geometric center-to-center line), so it matches the
+        // handwritten mental model instead of jumping to the box's midpoint.
+        var aw=nodeW(a), ah=nodeH(a), bw=nodeW(b), bh=nodeH(b);
+        var lo=Math.max(a.x,b.x)+2, hi=Math.min(a.x+aw,b.x+bw)-2;
+        var axmm = (typeof e.anchorX==='number') ? e.anchorX : (a.x+aw/2);
+        if(lo>hi){ lo=hi=axmm; }
+        axmm = LN.clamp(axmm, lo, hi);
+        var belowsource = b.y >= a.y;
+        var y1mm = belowsource ? a.y+ah : a.y;
+        var y2mm = belowsource ? b.y : b.y+bh;
+        var pxAx = mmToPx(axmm);
+        p1 = {x:pxAx, y:mmToPx(y1mm)};
+        p2 = {x:pxAx, y:mmToPx(y2mm)};
+      } else {
+        p1 = rectEdgePoint(ra.x,ra.y,ra.w,ra.h, rb.x+rb.w/2, rb.y+rb.h/2);
+        p2 = rectEdgePoint(rb.x,rb.y,rb.w,rb.h, ra.x+ra.w/2, ra.y+ra.h/2);
+      }
+      svg += '<line x1="'+p1.x+'" y1="'+p1.y+'" x2="'+p2.x+'" y2="'+p2.y+'" stroke="transparent" stroke-width="16" style="pointer-events:auto;cursor:pointer;" onclick="App.editEdge(\''+e.id+'\')"/>';
+      svg += '<line x1="'+p1.x+'" y1="'+p1.y+'" x2="'+p2.x+'" y2="'+p2.y+'" stroke="#555" stroke-width="2" marker-end="url(#arrowhead)" style="pointer-events:none;"/>';
+      if(e.label){
+        var my=(p1.y+p2.y)/2;
+        if(e.vertical){
+          labels += '<div class="flowArrowLabel vlabel" style="--vx:'+p1.x+'px; top:'+my+'px;" onclick="App.editEdge(\''+e.id+'\')">'+esc(e.label)+'</div>';
+        } else {
+          var mx=(p1.x+p2.x)/2;
+          labels += '<div class="flowArrowLabel" style="left:'+mx+'px; top:'+my+'px;" onclick="App.editEdge(\''+e.id+'\')">'+esc(e.label)+'</div>';
+        }
+      }
+    });
+    nodes.forEach(function(n){
+      var rn = rectOf(n);
+      (n.annotations||[]).forEach(function(a){
+        var anchor = annoAnchor(a);
+        var p1 = rectEdgePoint(rn.x, rn.y, rn.w, rn.h, anchor.x, anchor.y);
+        svg += '<line x1="'+p1.x+'" y1="'+p1.y+'" x2="'+anchor.x+'" y2="'+anchor.y+'" stroke="#8a8677" stroke-width="1.4" stroke-dasharray="3,3" marker-end="url(#annoArrowhead)" style="pointer-events:none;"/>';
+      });
+    });
+    svg += '</svg>';
+
+    var minHpx = mmToPx(LN.MM_PER_NODE_H);
+    var nodesHtml = nodes.map(function(n){
+      var r = rectOf(n);
+      var editing = FE.editingNodeId===n.id;
+      var sel = FE.selectedNodeId===n.id ? ' selected' : '';
+      // f-plain = a main-flow box: no printed frame, only a faint dashed edit guide.
+      var headingCls = ' f-'+LN.frameKindOf(n);
+      if(n.isTitleNode && n.frameStyle && n.frameStyle!=='solid') headingCls += ' frame-'+n.frameStyle;
+      if(editing){
+        var style = 'left:'+r.x+'px; top:'+r.y+'px; width:'+r.w+'px; min-height:'+minHpx+'px;';
+        return '<div class="flowNode'+sel+headingCls+'" style="'+style+'" data-id="'+n.id+'"><textarea class="assistTa" id="nodeTa_'+n.id+'">'+esc(n.text||'')+'</textarea></div>';
+      }
+      var wrapStyle = 'left:'+r.x+'px; top:'+r.y+'px; width:'+r.w+'px; min-height:'+minHpx+'px;';
+      var body = LN.renderRichText(n.text||'')||'<span style="color:#999;">(工程名)</span>';
+      // All of a box's controls are edit-time chrome that never prints, so they appear
+      // only on the box you tapped: H = frame it, ✥ = drag to move, ✕ = delete,
+      // + = add a note. No long press needed for any of them.
+      // The controls live in a small bar just outside the box, not on its corners: the
+      // box's own edges are where swipes start, and a delete button sitting on the
+      // bottom-left corner swallowed the downward swipe that makes the next step.
+      var ctrls = '';
+      if(FE.selectedNodeId===n.id){
+        var row = '';
+        if(!n.isTitleNode) row += '<button class="nodeBtn styleToggle'+(n.style==='heading'?' active':'')+'" onpointerdown="event.stopPropagation()" onclick="event.stopPropagation(); App.toggleNodeStyle(\''+n.id+'\')" title="枠をつけて強調">H</button>';
+        row += '<button class="nodeBtn moveHandle" data-move="'+n.id+'" title="ドラッグで移動">✥</button>';
+        row += '<button class="nodeBtn addAnno" onpointerdown="event.stopPropagation()" onclick="event.stopPropagation(); App.addAnnotation(\''+n.id+'\')" title="補足を追加">+</button>';
+        row += '<button class="nodeBtn delBtn" onpointerdown="event.stopPropagation()" onclick="event.stopPropagation(); App.deleteNode(\''+n.id+'\')" title="この箱を削除">✕</button>';
+        // above the box, unless it is right at the top of a sheet
+        var nearTop = (n.y - LN.bandTopMm(LN.pageIndexOf(n.y))) < 8;
+        ctrls = '<div class="nodeCtrls'+(nearTop?' below':'')+'">'+row+'</div>';
+      }
+      return '<div class="flowNodeWrap" style="'+wrapStyle+'">' +
+        '<div class="flowNode'+sel+headingCls+'" data-id="'+n.id+'" style="position:static; left:auto; top:auto; width:100%; min-height:'+minHpx+'px;">'+body+'</div>' +
+        ctrls +
+        '</div>';
+    }).join('');
+
+    var annoHtml = nodes.map(function(n){
+      return (n.annotations||[]).map(function(a){
+        var body = LN.renderAnnotationHtml(a.text||'', a.groups) || '<span style="color:#aaa;">(補足)</span>';
+        // A note may use the rest of the printable width — no more 34mm cage that broke
+        // "セイロン" into one character per line.
+        var maxW = mmToPx(Math.max(20, fullWidthMm()-a.x));
+        // Same idea as a box: the selected note carries its own move/delete controls.
+        var actrl = '';
+        if(FE.selectedAnnoId===a.id){
+          actrl = '<div class="nodeCtrls">' +
+            '<button class="nodeBtn moveHandle" data-amove="'+a.id+'" data-anode="'+n.id+'" title="ドラッグで移動">✥</button>' +
+            '<button class="nodeBtn delBtn" onpointerdown="event.stopPropagation()" onclick="event.stopPropagation(); App.deleteAnnotation(\''+n.id+'\',\''+a.id+'\')" title="この補足を削除">✕</button>' +
+            '</div>';
+        }
+        var aSel = FE.selectedAnnoId===a.id ? ' selected' : '';
+        return '<div class="flowAnnotation'+aSel+'" data-node="'+n.id+'" data-anno="'+a.id+'" style="left:'+mmToPx(a.x)+'px; top:'+mmToPx(a.y)+'px; max-width:'+maxW+'px;">'+body+actrl+'</div>';
+      }).join('');
+    }).join('');
+
+    var divHtml = dividers.map(function(d){
+      var dx=mmToPx(d.x), dy=mmToPx(d.y), dw=mmToPx(dividerW(d));
+      return '<div class="flowDivider" data-id="'+d.id+'" style="left:'+dx+'px; top:'+dy+'px; width:'+dw+'px;"></div>' +
+        '<div class="dividerHandle" data-handle="'+d.id+'" style="left:'+(dx+dw)+'px; top:'+dy+'px;"></div>';
+    }).join('');
+
+    world.innerHTML = sheets.html + svg + nodesHtml + annoHtml + divHtml + labels;
+
+    nodes.forEach(function(n){
+      var el = world.querySelector('.flowNode[data-id="'+n.id+'"]');
+      if(el){
+        if(FE.editingNodeId===n.id){
+          var ta = el.querySelector('textarea');
+          ta.focus();
+          ta.setSelectionRange(ta.value.length, ta.value.length);
+          ta.addEventListener('input', function(){ autoGrow(n, ta); });
+          ta.addEventListener('blur', function(){ commitNodeText(n.id, ta.value); });
+          ta.addEventListener('keydown', function(ev){ if(ev.key==='Enter' && !ev.shiftKey){ ev.preventDefault(); ta.blur(); } });
+          autoGrow(n, ta);
+        } else {
+          el.addEventListener('pointerdown', function(ev){ onNodePointerDown(ev, n); });
+        }
+      }
+      var mh = world.querySelector('.moveHandle[data-move="'+n.id+'"]');
+      if(mh) mh.addEventListener('pointerdown', function(ev){ onMoveHandleDown(ev, n); });
+      (n.annotations||[]).forEach(function(a){
+        var ael = world.querySelector('.flowAnnotation[data-anno="'+a.id+'"]');
+        if(ael) ael.addEventListener('pointerdown', function(ev){ onAnnotationPointerDown(ev, n, a); });
+        var amh = world.querySelector('.moveHandle[data-amove="'+a.id+'"]');
+        if(amh) amh.addEventListener('pointerdown', function(ev){ onAnnoMoveHandleDown(ev, a); });
+      });
+    });
+    dividers.forEach(function(d){
+      var del = world.querySelector('.flowDivider[data-id="'+d.id+'"]');
+      if(del) del.addEventListener('pointerdown', function(ev){ onDividerPointerDown(ev, d); });
+      var hel = world.querySelector('.dividerHandle[data-handle="'+d.id+'"]');
+      if(hel) hel.addEventListener('pointerdown', function(ev){ onDividerResizeDown(ev, d); });
+    });
+
+    syncNodeHeights(world, nodes);
+  }
+
+  // A box used to claim a fixed 15mm of height while only drawing as tall as its text,
+  // so its arrow began several millimetres below the visible box. Now the drawn height
+  // is measured and written back, and the arrow starts exactly at the box's edge.
+  var measuring = false;
+  function syncNodeHeights(world, nodes){
+    if(measuring) return;
+    var changed = false;
+    nodes.forEach(function(n){
+      if(FE.editingNodeId===n.id) return;
+      var el = world.querySelector('.flowNode[data-id="'+n.id+'"]');
+      if(!el) return;
+      var mm = Math.round(pxToMm(el.offsetHeight)*10)/10;
+      if(mm > 0 && Math.abs(mm - nodeH(n)) > 0.3){ n.h = mm; changed = true; }
+    });
+    if(!changed) return;
+    measuring = true;
+    try{
+      LN.ensureFlowEdgeGaps(FE.note);
+      LN.snapOutOfDeadZones(FE.note);
+      persistFlow();
+      renderCanvas();
+    } finally { measuring = false; }
+  }
+
+  function autoGrow(n, ta){
+    ta.style.height='auto';
+    var pxh = Math.max(mmToPx(n.h||LN.MM_PER_NODE_H), ta.scrollHeight);
+    ta.style.height = pxh+'px';
+    ta.parentElement.style.minHeight = pxh+'px';
+  }
+
+  function commitNodeText(id, text){
+    var n = nodeById(id);
+    if(!n) return;
+    n.text = text;
+    FE.editingNodeId = null;
+    // Stay selected after typing, so the frame toggle is right there for the box you
+    // just wrote — tapping the paper anywhere else clears it again.
+    FE.selectedNodeId = id;
+    FE.selectedAnnoId = null;
+    persistFlow();
+    renderCanvas();
+  }
+
+  function selectNode(id){ FE.selectedNodeId=id; FE.selectedAnnoId=null; renderCanvas(); bringNodeIntoView(id); }
+  function enterEditMode(id){ FE.editingNodeId=id; FE.selectedNodeId=id; FE.selectedAnnoId=null; renderCanvas(); bringNodeIntoView(id); }
+
+  // Scrolls the sheet so the box you are working on stays in the part of the screen the
+  // keyboard leaves visible — otherwise the box you just tapped sits behind the keyboard
+  // and the assist bar while you type into it.
+  function bringNodeIntoView(id){
+    var n = nodeById(id);
+    var vp = document.getElementById('canvasViewport');
+    if(!n || !vp) return;
+    var vr = vp.getBoundingClientRect();
+    var vv = window.visualViewport;
+    var assistH = (LN.kbdAssistHeight ? LN.kbdAssistHeight() : 0);
+    var visibleBottom = vr.bottom;
+    if(vv) visibleBottom = Math.min(visibleBottom, vv.offsetTop + vv.height - assistH);
+    var visibleTop = Math.max(vr.top, vv ? vv.offsetTop : 0);
+    if(visibleBottom - visibleTop < 60) return; // nothing usable to scroll into
+    // Measure the box as drawn: while it is being typed into it is taller than its
+    // stored height, and that difference is exactly what would leave it half-hidden.
+    var el = document.querySelector('.flowNode[data-id="'+id+'"]');
+    var topPx, botPx;
+    if(el){
+      var er = el.getBoundingClientRect();
+      topPx = er.top; botPx = er.bottom;
+    } else {
+      topPx = vr.top + FE.panY + mmToPx(n.y)*FE.zoom;
+      botPx = topPx + mmToPx(nodeH(n))*FE.zoom;
+    }
+    var pad = 16;
+    var dy = 0;
+    if(botPx > visibleBottom - pad) dy = (visibleBottom - pad) - botPx;
+    else if(topPx < visibleTop + pad) dy = (visibleTop + pad) - topPx;
+    if(!dy) return;
+    FE.panY += dy;
+    clampPan();
+    applyWorldTransform();
+  }
+
+  // Dragging the ✥ handle moves the box straight away — no hold-still-then-drag.
+  function onMoveHandleDown(ev, node){
+    ev.preventDefault(); ev.stopPropagation();
+    var sx=ev.clientX, sy=ev.clientY, ox=node.x, oy=node.y;
+    function mv(e2){
+      node.x = LN.clamp(ox + pxToMm((e2.clientX-sx)/FE.zoom), 0, Math.max(0, fullWidthMm()-nodeW(node)));
+      node.y = Math.max(0, oy + pxToMm((e2.clientY-sy)/FE.zoom));
+      renderCanvas();
+    }
+    function up(){
+      document.removeEventListener('pointermove', mv);
+      document.removeEventListener('pointerup', up);
+      persistFlow();
+    }
+    document.addEventListener('pointermove', mv);
+    document.addEventListener('pointerup', up, {once:true});
+  }
+
+  function onAnnoMoveHandleDown(ev, anno){
+    ev.preventDefault(); ev.stopPropagation();
+    var sx=ev.clientX, sy=ev.clientY, ox=anno.x, oy=anno.y;
+    function mv(e2){
+      anno.x = LN.clamp(ox + pxToMm((e2.clientX-sx)/FE.zoom), 0, Math.max(0, fullWidthMm()-14));
+      anno.y = Math.max(0, oy + pxToMm((e2.clientY-sy)/FE.zoom));
+      renderCanvas();
+    }
+    function up(){
+      document.removeEventListener('pointermove', mv);
+      document.removeEventListener('pointerup', up);
+      persistFlow();
+    }
+    document.addEventListener('pointermove', mv);
+    document.addEventListener('pointerup', up, {once:true});
+  }
+
+  async function deleteAnnotation(nodeId, annoId){
+    var n = nodeById(nodeId);
+    if(!n) return;
+    var ok = await LN.confirm('この補足を削除しますか?');
+    if(!ok) return;
+    n.annotations = (n.annotations||[]).filter(function(a){ return a.id!==annoId; });
+    if(FE.selectedAnnoId===annoId) FE.selectedAnnoId=null;
+    persistFlow(); renderCanvas();
+  }
+
+  async function deleteNode(id){
+    var n = nodeById(id);
+    if(!n) return;
+    var ok = await LN.confirm(n.isTitleNode ? 'この見出し(フローの名前と連動しています)を削除しますか?' : 'この工程を削除しますか?(つながる矢印も削除されます)');
+    if(!ok) return;
+    // Remember which boxes fed this one before the edges go, so the row it shared can
+    // close back up afterwards.
+    var parents = edgesArr().filter(function(e){ return e.vertical && e.to===id; }).map(function(e){ return e.from; });
+    // ...but only when that row is a set of end points. As soon as any box in the row
+    // leads on to further steps (three ways to do something, one of which has extra
+    // steps in the middle), the remaining boxes keep their size and position so those
+    // steps stay under the column they belong to.
+    var rowMates = [];
+    parents.forEach(function(p){ rowMates = rowMates.concat(downChildrenOf(p)); });
+    var keepRowAsIs = rowMates.some(function(k){ return hasNextSteps(k.id); });
+    FE.note.nodes = nodesArr().filter(function(x){ return x.id!==id; });
+    FE.note.edges = edgesArr().filter(function(e){ return e.from!==id && e.to!==id; });
+    if(FE.note.titleNodeId===id) FE.note.titleNodeId=null;
+    if(FE.selectedNodeId===id) FE.selectedNodeId=null;
+    if(!keepRowAsIs) parents.forEach(relayoutRow);
+    persistFlow(); renderCanvas();
+  }
+
+  function viewportToWorldMm(clientX, clientY){
+    var vp = document.getElementById('canvasViewport').getBoundingClientRect();
+    var localX = clientX - vp.left - FE.panX;
+    var localY = clientY - vp.top - FE.panY;
+    return {x: pxToMm(localX/FE.zoom), y: pxToMm(localY/FE.zoom)};
+  }
+
+  function findNodeAt(xmm, ymm, excludeId){
+    return nodesArr().find(function(n){
+      if(n.id===excludeId) return false;
+      var w=nodeW(n), h=nodeH(n);
+      return xmm>=n.x-3 && xmm<=n.x+w+3 && ymm>=n.y-3 && ymm<=n.y+h+3;
+    });
+  }
+
+  function addEdge(fromId, toId, opts){
+    if(fromId===toId) return;
+    var exists = edgesArr().some(function(e){return e.from===fromId && e.to===toId;});
+    if(exists) return;
+    var e = {id:LN.uid(), from:fromId, to:toId, label:''};
+    // A straight-down swipe records where the drag actually started, so the rendered
+    // arrow runs from that point rather than a computed box-center-to-center line.
+    if(opts && opts.vertical){ e.vertical=true; e.anchorX=opts.anchorX; }
+    edgesArr().push(e);
+  }
+
+  function onNodePointerDown(ev, node){
+    if(FE.editingNodeId) return;
+    ev.preventDefault(); ev.stopPropagation();
+    var startX=ev.clientX, startY=ev.clientY, startT=Date.now();
+    var origX=node.x, origY=node.y;
+    var mode=null;
+    var ghost=null;
+    // No long-press-to-delete any more: holding still is hard to judge on a phone and it
+    // deleted work by accident. Deleting is an explicit ✕ on the selected box instead.
+
+    function move(e2){
+      var dx=e2.clientX-startX, dy=e2.clientY-startY;
+      var dist=Math.hypot(dx,dy);
+      if(!mode){
+        if(dist>MOVE_TH){
+          mode = (Date.now()-startT)<HOLD_MS ? 'swipe' : 'drag';
+          if(mode==='swipe'){
+            ghost = document.createElement('div');
+            ghost.className='flowGhost';
+            var r=rectOf(node);
+            ghost.style.left=r.x+'px'; ghost.style.top=r.y+'px'; ghost.style.width=r.w+'px'; ghost.style.height=r.h+'px';
+            document.getElementById('canvasWorld').appendChild(ghost);
+          } else { selectNode(node.id); }
+        } else { return; }
+      }
+      if(mode==='swipe' && ghost){
+        var r=rectOf(node);
+        ghost.style.left=(r.x+dx/FE.zoom)+'px'; ghost.style.top=(r.y+dy/FE.zoom)+'px';
+      } else if(mode==='drag'){
+        // A box can't be dragged off the paper: the printable area is the whole canvas.
+        node.x = LN.clamp(origX + pxToMm(dx/FE.zoom), 0, Math.max(0, fullWidthMm()-nodeW(node)));
+        node.y = Math.max(0, origY + pxToMm(dy/FE.zoom));
+        renderCanvas();
+      }
+    }
+    function up(e2){
+      cleanup();
+      if(mode==='swipe'){
+        var wp = viewportToWorldMm(e2.clientX, e2.clientY);
+        var target = findNodeAt(wp.x, wp.y, node.id);
+        var dx=e2.clientX-startX, dy=e2.clientY-startY;
+        var isDown = Math.abs(dy)>=Math.abs(dx) && dy>0;
+        // Record the actual drag-start point (in world mm) so a straight-down arrow can
+        // be drawn from where the user began the gesture, not a computed box-center line.
+        var startWp = isDown ? viewportToWorldMm(startX, startY) : null;
+        var edgeOpts = isDown ? {vertical:true, anchorX:startWp.x} : null;
+        // Flicking down again from the same box usually lands on the step the previous
+        // flick created. That is not a request to connect two already-connected boxes —
+        // it means "another step here", so it makes a sibling beside it instead.
+        var alreadyChild = target && isDown && edgesArr().some(function(e){ return e.vertical && e.from===node.id && e.to===target.id; });
+        if(target && !alreadyChild){ addEdge(node.id, target.id, edgeOpts); }
+        else {
+          var w=nodeW(node), h=nodeH(node);
+          // Branch boxes (sideways/up) are always the normal compact size, regardless of
+          // the source box's own width — only a downward swipe inherits full width.
+          var nx,ny,nw=LN.MM_PER_NODE_W, isFull=false;
+          if(isDown){
+            // Downward swipe continues the main flow. The first one spans the full width;
+            // flicking down again from the same box puts the new step beside the first
+            // instead of on top of it, and the row is split evenly between them.
+            isFull = true;
+            var sibs = downChildrenOf(node.id).filter(function(k){ return k.full; });
+            nx = 0;
+            ny = sibs.length ? Math.min.apply(null, sibs.map(function(k){ return k.y; }))
+                             : LN.placeInBand(node.y+h+GAP_MM, h);
+          } else if(Math.abs(dx)>Math.abs(dy)){
+            if(dx>0){
+              nx=node.x+w+GAP_MM; ny=node.y;
+              // The page is never wider than its printable content area — narrow the
+              // branch box instead of letting it overflow past the right edge. If even a
+              // usably small box wouldn't fit (e.g. branching right off an already
+              // full-width box), there's genuinely no room, so don't create a broken
+              // sliver — tell the user instead.
+              var rightBound = fullWidthMm(), minW=12;
+              nw = rightBound-nx;
+              if(nw<minW){ LN.showToast('右側にスペースがありません。下や左にスワイプしてください','error'); return; }
+              nw = Math.min(nw, LN.MM_PER_NODE_W);
+            } else { nx=node.x-w-GAP_MM; ny=node.y; }
+          } else {
+            nx=node.x; ny=node.y-h-GAP_MM;
+          }
+          var nn = {id:LN.uid(), x:Math.max(0,nx), y:Math.max(0,ny), h:h, text:''};
+          if(isFull) nn.full = true; else nn.w = nw;
+          nodesArr().push(nn);
+          addEdge(node.id, nn.id, edgeOpts);
+          if(isDown) relayoutRow(node.id);
+          FE.editingNodeId = nn.id;
+        }
+        persistFlow();
+        renderCanvas();
+      } else if(mode==='drag'){
+        persistFlow();
+      } else {
+        if(node.isTitleNode){
+          var now = Date.now();
+          var isDoubleTap = FE.lastTap && FE.lastTap.id===node.id && (now-FE.lastTap.t)<380;
+          if(isDoubleTap){
+            FE.lastTap = null;
+            cycleTitleFrameStyle(node.id);
+          } else {
+            FE.lastTap = {id:node.id, t:now};
+            // Select it too, so the heading also offers its move/delete controls.
+            FE.selectedNodeId = node.id;
+            renderCanvas();
+            var ti = document.getElementById('flowTitle');
+            if(ti){ ti.focus(); ti.select(); }
+            LN.showToast('見出しはフローの名前欄と連動しています。名前欄で編集してください');
+          }
+        } else {
+          enterEditMode(node.id);
+        }
+      }
+    }
+    function cleanup(){
+      document.removeEventListener('pointermove', move);
+      document.removeEventListener('pointerup', up);
+      if(ghost && ghost.parentElement) ghost.parentElement.removeChild(ghost);
+    }
+    document.addEventListener('pointermove', move);
+    document.addEventListener('pointerup', up, {once:true});
+  }
+
+  function wireViewportPan(){
+    var vp = document.getElementById('canvasViewport');
+    var panning=false, sx=0, sy=0, ox=0, oy=0;
+    vp.addEventListener('pointerdown', function(ev){
+      if(ev.target.closest('.flowNode') || ev.target.closest('.flowArrowLabel') || ev.target.closest('.flowAnnotation') || ev.target.closest('.flowDivider') || ev.target.closest('.dividerHandle') || ev.target.closest('.nodeBtn')) return;
+      // Touching bare paper deselects, which also puts the controls away.
+      if(FE.selectedNodeId || FE.selectedAnnoId){ FE.selectedNodeId=null; FE.selectedAnnoId=null; renderCanvas(); }
+      panning=true; sx=ev.clientX; sy=ev.clientY; ox=FE.panX; oy=FE.panY;
+    });
+    vp.addEventListener('pointermove', function(ev){
+      if(!panning) return;
+      FE.panX = ox + (ev.clientX-sx);
+      FE.panY = oy + (ev.clientY-sy);
+      // The sheet can't be dragged sideways out of view: the paper's width is the
+      // editing width, so horizontal panning only exists while zoomed past it.
+      clampPan();
+      applyWorldTransform();
+    });
+    ['pointerup','pointercancel','pointerleave'].forEach(function(evt){
+      vp.addEventListener(evt, function(){ panning=false; });
+    });
+  }
+
+  function addFreeNode(fullWidth){
+    // fullWidth=true is only used for the very first box of a brand-new flow (the
+    // opening step of the main trunk). The manual "+" button instead adds a small,
+    // arrow-less label box (e.g. a 【茶葉】-style tag) at a normal compact size.
+    // Default the new box's position to just below the current lowest content
+    // (a node or a divider), not a fixed point near the viewport's top-left —
+    // anchoring to the viewport meant every box added via "+" without first
+    // scrolling/panning landed at the exact same spot and piled up directly on
+    // top of the heading and each other.
+    var nodes = nodesArr(), dividers = dividersArr();
+    var maxY = null;
+    nodes.forEach(function(n){ var b = n.y + nodeH(n); if(maxY===null||b>maxY) maxY=b; });
+    dividers.forEach(function(d){ if(maxY===null||d.y>maxY) maxY=d.y; });
+    var y = LN.placeInBand(maxY!==null ? maxY + GAP_MM : 0, LN.MM_PER_NODE_H);
+    var nn = {id:LN.uid(), x:0, y:Math.max(0,y), h:LN.MM_PER_NODE_H, text:''};
+    if(fullWidth) nn.full = true; else nn.w = LN.MM_PER_NODE_W;
+    nodesArr().push(nn);
+    FE.editingNodeId = nn.id;
+    persistFlow();
+    renderCanvas();
+  }
+
+  async function editEdge(id){
+    var e = edgesArr().find(function(x){return x.id===id;});
+    if(!e) return;
+    var val = await LN.promptOrDelete('矢印のラベル(空でラベルなし)', e.label||'', '矢印を削除');
+    if(val===null) return;
+    if(val==='__delete__'){
+      var ok = await LN.confirm('この矢印を削除しますか?');
+      if(ok){
+        FE.note.edges = edgesArr().filter(function(x){return x.id!==id;});
+        persistFlow(); renderCanvas();
+      }
+      return;
+    }
+    e.label = val.trim();
+    ensureGapForEdgeLabel(e);
+    persistFlow(); renderCanvas();
+  }
+
+  function toggleNodeStyle(nodeId){
+    var n = nodeById(nodeId);
+    if(!n) return;
+    if(n.isTitleNode){ LN.showToast('見出しはフローの名前と連動しているためスタイルは固定です'); return; }
+    n.style = n.style==='heading' ? 'normal' : 'heading';
+    persistFlow();
+    renderCanvas();
+  }
+
+  // The title heading's own frame design (thickness / double line / underline), separate
+  // from the heading-vs-normal H toggle other boxes use. Cycled via double-tap on the
+  // title box itself.
+  var TITLE_FRAME_STYLES = ['solid','double','thin','underline'];
+  function cycleTitleFrameStyle(nodeId){
+    var n = nodeById(nodeId);
+    if(!n) return;
+    var idx = TITLE_FRAME_STYLES.indexOf(n.frameStyle||'solid');
+    n.frameStyle = TITLE_FRAME_STYLES[(idx+1)%TITLE_FRAME_STYLES.length];
+    persistFlow();
+    renderCanvas();
+    var label = {solid:'ふつう', double:'二重線', thin:'細線', underline:'下線のみ'}[n.frameStyle];
+    LN.showToast('見出しの枠: '+label);
+  }
+
+  function addAnnotation(nodeId){
+    var n = nodeById(nodeId);
+    if(!n) return;
+    var w = nodeW(n), fw = fullWidthMm();
+    if(!n.annotations) n.annotations=[];
+    // Beside the box when the page still has room there; otherwise directly underneath
+    // it, with the rest of the flow pushed down to make space. (Parking it to the right
+    // of a full-width box is what used to shove notes off the paper entirely.)
+    var anno;
+    if(n.x + w + 6 + 26 <= fw){
+      anno = {id:LN.uid(), x:n.x+w+6, y:n.y, text:'', groups:[]};
+    } else {
+      var below = n.y + nodeH(n) + 2;
+      LN.shiftContentBelow(FE.note, below, 16);
+      anno = {id:LN.uid(), x:Math.min(3, Math.max(0,fw-30)), y:below, text:'', groups:[]};
+    }
+    n.annotations.push(anno);
+    persistFlow();
+    renderCanvas();
+    openAnnotationEditor(nodeId, anno.id);
+  }
+
+  // (insertAtCursor/wrapSelection now live in LN, shared with the global keyboard-assist bar)
+  var insertAtCursor = LN.insertAtCursor, wrapSelection = LN.wrapSelection;
+  function computeLineGroup(ta){
+    var v = ta.value, s=ta.selectionStart, e=ta.selectionEnd;
+    if(s===e) return null;
+    var startLine = v.slice(0,s).split('\n').length-1;
+    var endLine = startLine + v.slice(s,e).split('\n').length-1;
+    return {start:startLine, end:endLine};
+  }
+
+  function openAnnotationEditor(nodeId, annoId){
+    var n = nodeById(nodeId);
+    if(!n) return;
+    var anno = (n.annotations||[]).find(function(a){return a.id===annoId;});
+    if(!anno) return;
+    var groupsLocal = (anno.groups||[]).slice();
+    var ov = document.createElement('div'); ov.className='modalOverlay';
+    ov.innerHTML =
+      '<div class="annoEditBox">' +
+        '<div class="modalMsg" style="margin-bottom:8px; font-weight:700;">工程への補足</div>' +
+        '<div class="annoToolbar">' +
+          '<button type="button" class="btn small" data-ins="key">【 】</button>' +
+          '<button type="button" class="btn small" data-ins="bullet">・</button>' +
+          '<button type="button" class="btn small" data-ins="c1">①</button>' +
+          '<button type="button" class="btn small" data-ins="c2">②</button>' +
+          '<button type="button" class="btn small" data-ins="c3">③</button>' +
+          '<button type="button" class="btn small" data-ins="note">※</button>' +
+          '<button type="button" class="btn small" data-ins="group">くくる</button>' +
+        '</div>' +
+        '<textarea class="assistTa" id="annoTa" placeholder="補足を入力(【】でキー囲み、・で箇条書き、複数行選んで「くくる」)">'+esc(anno.text||'')+'</textarea>' +
+        '<div class="modalBtns" style="justify-content:space-between;">' +
+          '<button type="button" class="btn danger" data-a="del">削除</button>' +
+          '<div style="display:flex; gap:8px;"><button type="button" class="btn" data-a="cancel">キャンセル</button><button type="button" class="btn primary" data-a="ok">保存</button></div>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(ov);
+    var ta = ov.querySelector('#annoTa');
+    ta.focus();
+    ov.querySelectorAll('[data-ins]').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        var kind = btn.dataset.ins;
+        if(kind==='key') wrapSelection(ta,'【','】');
+        else if(kind==='bullet') insertAtCursor(ta,'・');
+        else if(kind==='c1') insertAtCursor(ta,'①');
+        else if(kind==='c2') insertAtCursor(ta,'②');
+        else if(kind==='c3') insertAtCursor(ta,'③');
+        else if(kind==='note') insertAtCursor(ta,'※');
+        else if(kind==='group'){
+          var g = computeLineGroup(ta);
+          if(!g){ LN.showToast('まとめたい行を選択してください','error'); return; }
+          groupsLocal = groupsLocal.filter(function(x){ return !(x.start<=g.end && x.end>=g.start); });
+          groupsLocal.push(g);
+          LN.showToast('選択した行をくくりました');
+        }
+      });
+    });
+    // Closing the editor leaves the note selected, so its ✥/✕ are right there.
+    function close(){ if(ov.parentNode) document.body.removeChild(ov); renderCanvas(); }
+    ov.addEventListener('click', async function(e){
+      if(e.target===ov){ close(); return; }
+      var b = e.target.closest('button[data-a]'); if(!b) return;
+      var act = b.dataset.a;
+      if(act==='cancel'){ close(); return; }
+      if(act==='del'){
+        var ok = await LN.confirm('この補足を削除しますか?');
+        if(ok){
+          n.annotations = (n.annotations||[]).filter(function(a){return a.id!==annoId;});
+          persistFlow(); renderCanvas(); close();
+        }
+        return;
+      }
+      if(act==='ok'){
+        anno.text = ta.value;
+        anno.groups = groupsLocal;
+        persistFlow(); renderCanvas(); close();
+      }
+    });
+  }
+
+  function onAnnotationPointerDown(ev, node, anno){
+    ev.preventDefault(); ev.stopPropagation();
+    var startX=ev.clientX, startY=ev.clientY;
+    var origX=anno.x, origY=anno.y;
+    var moved=false;
+    // Like the boxes: no long press. A tap opens the note for editing and leaves it
+    // selected, and its own ✥ / ✕ handle the moving and deleting.
+    function move(e2){
+      var dx=e2.clientX-startX, dy=e2.clientY-startY;
+      if(!moved && Math.hypot(dx,dy)>MOVE_TH){ moved=true; }
+      if(moved){
+        anno.x = LN.clamp(origX + pxToMm(dx/FE.zoom), 0, Math.max(0, fullWidthMm()-14));
+        anno.y = Math.max(0, origY + pxToMm(dy/FE.zoom));
+        renderCanvas();
+      }
+    }
+    function up(){
+      cleanup();
+      if(moved){ persistFlow(); return; }
+      FE.selectedAnnoId = anno.id;
+      FE.selectedNodeId = null;
+      openAnnotationEditor(node.id, anno.id);
+    }
+    function cleanup(){
+      document.removeEventListener('pointermove', move);
+      document.removeEventListener('pointerup', up);
+    }
+    document.addEventListener('pointermove', move);
+    document.addEventListener('pointerup', up, {once:true});
+  }
+
+  function addDivider(){
+    // Default the divider to the full printable width, left-aligned at x=2 — like the
+    // main-trunk boxes and the heading — instead of a small fixed 80mm line dropped at
+    // the viewport's center, which is why it always looked "stranded in the middle"
+    // regardless of the surrounding content. Also default its y to just below the
+    // current lowest content (a node or another divider) so a newly added divider
+    // continues the flow downward instead of landing on top of existing boxes.
+    var nodes = nodesArr(), dividers = dividersArr();
+    var maxY = null;
+    nodes.forEach(function(n){ var b = n.y + nodeH(n); if(maxY===null||b>maxY) maxY=b; });
+    dividers.forEach(function(d2){ if(maxY===null||d2.y>maxY) maxY=d2.y; });
+    var y = LN.placeInBand(maxY!==null ? maxY + GAP_MM : 0, 2);
+    var d = {id:LN.uid(), x:0, y:Math.max(0,y), full:true};
+    dividersArr().push(d);
+    persistFlow();
+    renderCanvas();
+  }
+
+  function onDividerPointerDown(ev, div){
+    ev.preventDefault(); ev.stopPropagation();
+    var startX=ev.clientX, startY=ev.clientY;
+    var origX=div.x, origY=div.y;
+    var moved=false;
+    var longTimer = setTimeout(async function(){
+      if(!moved){
+        cleanup();
+        var ok = await LN.confirm('この区切り線を削除しますか?');
+        if(ok){
+          FE.note.dividers = dividersArr().filter(function(x){return x.id!==div.id;});
+          persistFlow(); renderCanvas();
+        }
+      }
+    }, 650);
+    function move(e2){
+      var dx=e2.clientX-startX, dy=e2.clientY-startY;
+      if(!moved && Math.hypot(dx,dy)>MOVE_TH){ moved=true; clearTimeout(longTimer); }
+      if(moved){
+        div.x = origX + pxToMm(dx/FE.zoom);
+        div.y = origY + pxToMm(dy/FE.zoom);
+        renderCanvas();
+      }
+    }
+    function up(){
+      cleanup();
+      clearTimeout(longTimer);
+      if(moved) persistFlow();
+    }
+    function cleanup(){
+      document.removeEventListener('pointermove', move);
+      document.removeEventListener('pointerup', up);
+    }
+    document.addEventListener('pointermove', move);
+    document.addEventListener('pointerup', up, {once:true});
+  }
+
+  function onDividerResizeDown(ev, div){
+    ev.preventDefault(); ev.stopPropagation();
+    var startX=ev.clientX;
+    var origW=dividerW(div);
+    function move(e2){
+      var dx=e2.clientX-startX;
+      // Resizing by hand turns a full-width rule into one with its own width, and it
+      // still can't run past the printable edge.
+      div.full = false;
+      div.w = LN.clamp(origW + pxToMm(dx/FE.zoom), 10, fullWidthMm()-div.x);
+      renderCanvas();
+    }
+    function up(){
+      document.removeEventListener('pointermove', move);
+      document.removeEventListener('pointerup', up);
+      persistFlow();
+    }
+    document.addEventListener('pointermove', move);
+    document.addEventListener('pointerup', up, {once:true});
+  }
+
+  window.App = window.App || {};
+  Object.assign(window.App, {
+    openFlowEditor: openFlowEditor,
+    closeEditor: function(){ FE=null; App.goTab('list'); },
+    toggleHint: toggleHint,
+    deleteNode: deleteNode,
+    deleteAnnotation: deleteAnnotation,
+    flowZoom: function(dir){
+      var before = FE.zoom;
+      FE.zoom = LN.clamp(FE.zoom + dir*0.2, 0.5, 2.2);
+      // Keep the same point of the sheet under the view while zooming.
+      FE.panY = FE.panY * (FE.zoom/before);
+      updateCanvasViewportWidth(); clampPan(); applyWorldTransform();
+    },
+    addFreeNode: function(){ addFreeNode(false); },
+    addDivider: addDivider,
+    addAnnotation: addAnnotation,
+    toggleNodeStyle: toggleNodeStyle,
+    editEdge: editEdge
+  });
+})();
+</script>
+<script>
+(function(){
+  "use strict";
+  var LN = window.LN, state = LN.state, ICONS = LN.ICONS, esc = LN.esc;
+  var ME = null; // {note}
+
+  function persistMemo(){
+    LN.patchNote(ME.note.id, {title: ME.note.title, categoryId: ME.note.categoryId, content: ME.note.content});
+  }
+
+  function openMemoEditor(id){
+    var n = state.notes.find(function(x){return x.id===id;});
+    if(!n){ App.goTab('list'); return; }
+    ME = {note: JSON.parse(JSON.stringify(n))};
+    document.getElementById('topbar').innerHTML =
+      '<button class="backbtn" onclick="App.closeMemoEditor()">'+ICONS.back+'</button>' +
+      '<input class="titlein" id="memoTitle" placeholder="メモの名前" value="'+esc(ME.note.title||'')+'">' +
+      '<button class="tbaction" onclick="App.confirmDeleteNote(\''+ME.note.id+'\', true)">削除</button>';
+    document.getElementById('memoTitle').addEventListener('change', function(){ ME.note.title=this.value; persistMemo(); });
+
+    var catOpts = '<option value="">未分類</option>' + state.categories.slice().sort(LN.byOrder).map(function(c){
+      return '<option value="'+c.id+'"'+(c.id===(ME.note.categoryId||'')?' selected':'')+'>'+esc(c.name)+'</option>';
+    }).join('');
+
+    var view = document.getElementById('view');
+    view.className='flush';
+    view.innerHTML =
+      '<div style="display:flex; flex-direction:column; height:100%;">' +
+      '<div class="memoToolbar">' +
+        '<select id="memoCat" style="border:1px solid var(--line);border-radius:8px;padding:5px 6px;background:var(--surface-2);color:var(--ink);font-size:12px;">'+catOpts+'</select>' +
+        '<button class="btn small" onclick="App.insertKeyBox()">【 】キー囲み</button>' +
+        '<button class="btn small" onclick="App.convertBullets()">・箇条書きに変換</button>' +
+      '</div>' +
+      '<div class="memoSplit">' +
+        '<textarea class="assistTa" id="memoContent" placeholder="ここにメモを入力。【小計】のようにカッコで囲むとキー表示になります。">'+esc(ME.note.content||'')+'</textarea>' +
+        '<div class="memoPreview" id="memoPreview"></div>' +
+      '</div></div>';
+    document.getElementById('memoCat').addEventListener('change', function(){ ME.note.categoryId=this.value; persistMemo(); });
+    var ta = document.getElementById('memoContent');
+    ta.addEventListener('input', function(){ ME.note.content=this.value; renderMemoPreview(); });
+    ta.addEventListener('blur', function(){ persistMemo(); });
+    renderMemoPreview();
+  }
+
+  function renderMemoPreview(){
+    var el = document.getElementById('memoPreview');
+    if(!el) return;
+    var content = ME.note.content||'';
+    el.innerHTML = content.trim() ? LN.renderRichText(content) : '<div class="ph">プレビュー(【 】で囲むとキー表示、・で箇条書きになります)</div>';
+  }
+
+  function insertKeyBox(){
+    var ta = document.getElementById('memoContent');
+    var s=ta.selectionStart, e=ta.selectionEnd;
+    var text=ta.value;
+    var sel = text.slice(s,e);
+    ta.value = text.slice(0,s) + '【' + sel + '】' + text.slice(e);
+    var cursor = sel ? s+sel.length+2 : s+1;
+    ta.focus(); ta.setSelectionRange(cursor,cursor);
+    ME.note.content = ta.value;
+    renderMemoPreview();
+  }
+
+  function convertBullets(){
+    var ta = document.getElementById('memoContent');
+    var text = ta.value;
+    var start = ta.selectionStart, end = ta.selectionEnd;
+    var pStart, pEnd;
+    if(start===end){
+      pStart = text.lastIndexOf('\n\n', Math.max(0,start-1)); pStart = pStart<0 ? 0 : pStart+2;
+      pEnd = text.indexOf('\n\n', start); pEnd = pEnd<0 ? text.length : pEnd;
+    } else { pStart=start; pEnd=end; }
+    var para = text.slice(pStart,pEnd);
+    if(!para.trim()){ LN.showToast('箇条書きにする文章を選択するか、段落内にカーソルを置いてください','error'); return; }
+    var lines = para.split('\n').map(function(l){return l.trim();}).filter(Boolean);
+    var items = lines.length>1 ? lines : para.split('。').map(function(s){return s.trim();}).filter(Boolean);
+    var bulletText = items.map(function(s){ return '・'+s.replace(/^・/,'').replace(/。$/,''); }).join('\n');
+    ta.value = text.slice(0,pStart) + bulletText + text.slice(pEnd);
+    ME.note.content = ta.value;
+    persistMemo();
+    renderMemoPreview();
+  }
+
+  window.App = window.App || {};
+  Object.assign(window.App, {
+    openMemoEditor: openMemoEditor,
+    closeMemoEditor: function(){ ME=null; App.goTab('list'); },
+    insertKeyBox: insertKeyBox,
+    convertBullets: convertBullets
+  });
+})();
+</script>
+<script>
+(function(){
+  "use strict";
+  var LN = window.LN, state = LN.state, ICONS = LN.ICONS, esc = LN.esc;
+  var PX_PER_MM = 3.7795;
+
+  function nodeById2(note,id){ return (note.nodes||[]).find(function(n){return n.id===id;}); }
+  function rectEdgePointMm(r, tx,ty){
+    var cx=r.x+r.w/2, cy=r.y+r.h/2, dx=tx-cx, dy=ty-cy;
+    if(dx===0&&dy===0) return {x:cx,y:cy};
+    var hw=r.w/2, hh=r.h/2;
+    var sx = dx!==0 ? hw/Math.abs(dx) : Infinity;
+    var sy = dy!==0 ? hh/Math.abs(dy) : Infinity;
+    var s=Math.min(sx,sy);
+    return {x:cx+dx*s, y:cy+dy*s};
+  }
+
+  function printableNotes(){
+    var list = state.notes.slice().sort(LN.byOrder);
+    if(state.printCat!=='all') list = list.filter(function(n){ return (n.categoryId||'')===state.printCat; });
+    return list;
+  }
+
+  // Sheets are cut from a grid anchored at the note's own origin (0,0 = top-left of the
+  // printable area), NOT at the content's bounding box. Anchoring to the bounding box
+  // used to shift everything by the padding it added, which is what pushed full-width
+  // boxes past the right margin and cut their frames off.
+  function computeFlowTiles(note, tileWmm, tileHmm){
+    var nodes = note.nodes||[];
+    var dividers = note.dividers||[];
+    if(nodes.length===0 && dividers.length===0) return [{originX:0, originY:0}];
+    var maxX=0, maxY=0;
+    nodes.forEach(function(n){
+      maxX=Math.max(maxX, n.x+LN.nodeWmm(n)); maxY=Math.max(maxY, n.y+LN.nodeHmm(n));
+      (n.annotations||[]).forEach(function(a){
+        maxX=Math.max(maxX, a.x+20); maxY=Math.max(maxY, a.y+LN.annoHeightMm(a));
+      });
+    });
+    dividers.forEach(function(d){
+      maxX=Math.max(maxX, d.x+LN.dividerWmm(d)); maxY=Math.max(maxY, d.y+2);
+    });
+    var cols = Math.max(1, Math.ceil((maxX-0.2)/tileWmm));
+    var rows = Math.max(1, LN.pageIndexOf(maxY-0.2)+1);
+    var tiles=[];
+    // Row r is sheet r: its writable band starts one paper-height apart from the last,
+    // exactly as the editor draws the sheets.
+    for(var r=0;r<rows;r++) for(var c=0;c<cols;c++) tiles.push({originX:c*tileWmm, originY:LN.bandTopMm(r)});
+    return tiles;
+  }
+
+  function renderFlowTileInner(note, tile, tileWmm, tileHmm, fontPt){
+    var nodesHtml = (note.nodes||[]).map(function(n){
+      var w=LN.nodeWmm(n), h=LN.nodeHmm(n);
+      // Only real ink is printed. A main-flow box (full width) gets no frame and no
+      // white fill at all, so the flow reads like a written page on the grid paper;
+      // frames belong to the title, an emphasised box and small call-outs.
+      var kind = LN.frameKindOf(n), frame;
+      if(kind==='plain'){
+        frame = 'border:none; background:transparent; padding:0.6mm 0.2mm;';
+      } else if(kind==='title'){
+        var fs = n.frameStyle||'solid';
+        if(fs==='double') frame = 'border:0.25mm solid #1a1a1a; box-shadow:0 0 0 0.3mm #fff, 0 0 0 0.55mm #1a1a1a; font-weight:700;';
+        else if(fs==='thin') frame = 'border:0.15mm solid #1a1a1a; font-weight:500;';
+        else if(fs==='underline') frame = 'border:none; border-bottom:0.4mm solid #1a1a1a; border-radius:0; background:transparent; padding-left:0.4mm; font-weight:700;';
+        else frame = 'border:0.3mm solid #1a1a1a; font-weight:700;';
+      } else if(kind==='emph'){
+        frame = 'border:0.45mm solid #1a1a1a; font-weight:700;';
+      } else {
+        frame = 'border:0.25mm solid #1a1a1a;';
+      }
+      return '<div style="position:absolute; left:'+n.x+'mm; top:'+n.y+'mm; width:'+w+'mm; min-height:'+h+'mm; border-radius:1mm; padding:1mm 1.3mm; font-size:'+fontPt+'pt; line-height:1.28; overflow:hidden; '+frame+'">'+(LN.renderRichText(n.text||''))+'</div>';
+    }).join('');
+    var annoFontPt = Math.max(6, fontPt-1.5);
+    var annoHtml = (note.nodes||[]).map(function(n){
+      return (n.annotations||[]).map(function(a){
+        var body = LN.renderAnnotationHtml(a.text||'', a.groups) || '';
+        // Notes print as plain text (their bracket is the only ink), and may use the rest
+        // of the printable width instead of being squeezed into a 34mm column.
+        var awMm = Math.max(18, LN.fullWidthMm() - a.x);
+        return '<div style="position:absolute; left:'+a.x+'mm; top:'+a.y+'mm; max-width:'+awMm+'mm; padding:0.3mm 0.4mm; font-size:'+annoFontPt+'pt; line-height:1.3;">'+body+'</div>';
+      }).join('');
+    }).join('');
+    var dividerHtml = (note.dividers||[]).map(function(d){
+      return '<div style="position:absolute; left:'+d.x+'mm; top:'+d.y+'mm; width:'+LN.dividerWmm(d)+'mm; border-top:0.35mm solid #555;"></div>';
+    }).join('');
+    var edgesHtml = '<svg style="position:absolute;left:0;top:0;overflow:visible;" width="2mm" height="2mm"><defs>' +
+      '<marker id="pah" markerWidth="6" markerHeight="6" refX="5" refY="2.5" orient="auto"><path d="M0,0 L5,2.5 L0,5 Z" fill="#333"/></marker>' +
+      '<marker id="pahAnno" markerWidth="5" markerHeight="5" refX="4" refY="2" orient="auto"><path d="M0,0 L4,2 L0,4 Z" fill="#888"/></marker>' +
+      '</defs>' +
+      (note.edges||[]).map(function(e){
+        var a=nodeById2(note,e.from), b=nodeById2(note,e.to);
+        if(!a||!b) return '';
+        var ra={x:a.x,y:a.y,w:LN.nodeWmm(a),h:LN.nodeHmm(a)}, rb={x:b.x,y:b.y,w:LN.nodeWmm(b),h:LN.nodeHmm(b)};
+        var p1,p2;
+        if(e.vertical){
+          // Matches the on-canvas editor: a down-swipe arrow runs straight down from the
+          // point the user actually started dragging, not a computed center-to-center line.
+          var lo=Math.max(ra.x,rb.x)+2, hi=Math.min(ra.x+ra.w,rb.x+rb.w)-2;
+          var axmm=(typeof e.anchorX==='number')?e.anchorX:(ra.x+ra.w/2);
+          if(lo>hi){ lo=hi=axmm; }
+          axmm=LN.clamp(axmm,lo,hi);
+          var belowsource = rb.y >= ra.y;
+          var y1=belowsource?ra.y+ra.h:ra.y, y2=belowsource?rb.y:rb.y+rb.h;
+          p1={x:axmm,y:y1}; p2={x:axmm,y:y2};
+        } else {
+          p1=rectEdgePointMm(ra, rb.x+rb.w/2, rb.y+rb.h/2);
+          p2=rectEdgePointMm(rb, ra.x+ra.w/2, ra.y+ra.h/2);
+        }
+        var lbl = '';
+        if(e.label){
+          if(e.vertical){
+            // Plain text beside the arrow — no bubble, no box, no connector: on paper the
+            // words simply sit to the right of the line, and the arrow stays untouched.
+            // A long label (or several close-together arrows) wraps onto more lines, and
+            // the arrow itself was already lengthened to make room for them.
+            var wrapped = LN.wrapEdgeLabel(e.label);
+            var lines=wrapped.lines, lineH=wrapped.lineH, boxH=wrapped.boxH;
+            var midY=(p1.y+p2.y)/2, textX=p1.x+2.2;
+            var firstY=midY-boxH/2+2.6;
+            lbl = lines.map(function(l,i){
+              return '<text x="'+textX+'mm" y="'+(firstY+i*lineH)+'mm" font-size="6.6" fill="#1a1a1a">'+esc(l)+'</text>';
+            }).join('');
+          } else {
+            lbl = '<text x="'+((p1.x+p2.x)/2)+'mm" y="'+((p1.y+p2.y)/2)+'mm" font-size="7" fill="#333" text-anchor="middle" style="paint-order:stroke; stroke:#fff; stroke-width:1.6mm;">'+esc(e.label)+'</text>';
+          }
+        }
+        return '<line x1="'+p1.x+'mm" y1="'+p1.y+'mm" x2="'+p2.x+'mm" y2="'+p2.y+'mm" stroke="#333" stroke-width="0.35mm" marker-end="url(#pah)"/>'+lbl;
+      }).join('') +
+      '</svg>';
+    // .inner needs a real width: an absolutely positioned child with no width of its own
+    // (a note) otherwise shrink-to-fits against a zero-width container and collapses to
+    // one character per line — which is why "セイロン" used to print vertically.
+    return '<div class="content" style="left:0; top:0; width:'+tileWmm+'mm; height:'+tileHmm+'mm;">' +
+      '<div class="inner" style="left:'+(-tile.originX)+'mm; top:'+(-tile.originY)+'mm; width:'+(tileWmm+tile.originX)+'mm;">'+edgesHtml+dividerHtml+nodesHtml+annoHtml+'</div></div>';
+  }
+
+  function computeMemoChunks(note, tileWmm, tileHmm, fontPt){
+    var lineHmm = fontPt*0.3528*1.5;
+    var linesPerPage = Math.max(4, Math.floor((tileHmm-4)/lineHmm));
+    var linesAll = (note.content||'').split('\n');
+    var chunks=[];
+    for(var i=0;i<linesAll.length;i+=linesPerPage){ chunks.push(linesAll.slice(i,i+linesPerPage).join('\n')); }
+    if(chunks.length===0) chunks=[''];
+    return chunks;
+  }
+
+  // returns array of {title, html} sheets (each = one mini page's worth of content, no outer frame)
+  function buildSheets(notes, s){
+    var tileWmm = s.paperW - s.marginMm*2;
+    var tileHmm = s.paperH - s.holeMm - s.marginMm;
+    var sheets = [];
+    notes.forEach(function(note){
+      // A thin category-color tab down the left margin, so pages stay identifiable by
+      // category once printed and mixed into a binder — matches the note's own category
+      // color (blank/gray when uncategorized, same as its list-view tag).
+      var cat = LN.catById(note.categoryId);
+      var catHex = cat ? cat.hex : '';
+      if(note.type==='flow'){
+        // Self-heal: a note saved by an older version may still be on the old geometry,
+        // be short of room for a wrapped arrow label, or have a box straddling the end
+        // of a sheet. Printing shouldn't show a broken layout, so fix it up first — and
+        // save the result, so the one-time geometry migration stays one-time.
+        var migrated = LN.normalizeFlowGeometry(note);
+        LN.ensureFlowEdgeGaps(note);
+        LN.snapOutOfDeadZones(note);
+        if(migrated) LN.patchNote(note.id, {nodes:note.nodes, dividers:note.dividers, geomV2:true});
+        var tiles = computeFlowTiles(note, tileWmm, tileHmm);
+        tiles.forEach(function(tile, i){
+          sheets.push({title: note.title + (tiles.length>1 ? ' ('+(i+1)+'/'+tiles.length+')' : ''), html: renderFlowTileInner(note, tile, tileWmm, tileHmm, s.fontPt), catHex: catHex});
+        });
+      } else {
+        var chunks = computeMemoChunks(note, tileWmm, tileHmm, s.fontPt);
+        chunks.forEach(function(chunk, i){
+          var html = '<div class="memotext" style="font-size:'+s.fontPt+'pt;">'+LN.renderRichText(chunk)+'</div>';
+          sheets.push({title: note.title + (chunks.length>1 ? ' ('+(i+1)+'/'+chunks.length+')' : ''), html: html, catHex: catHex});
+        });
+      }
+    });
+    return sheets;
+  }
+
+  function sheetFrame(sheet, s){
+    var holes = '';
+    var n = s.holeMm>0 ? 9 : 0; // the mini loose-leaf's own punch count
+    for(var i=0;i<n;i++) holes += '<span></span>';
+    var catTab = sheet.catHex ? '<div style="position:absolute; left:1mm; top:'+s.holeMm+'mm; width:2mm; bottom:'+(s.marginMm*0.6)+'mm; background:'+sheet.catHex+'; border-radius:1mm;"></div>' : '';
+    return '<div class="printSheet mini" style="--pw:'+s.paperW+'; --ph:'+s.paperH+'; --holemm:'+s.holeMm+'mm; --gridpx:'+(s.gridMm*PX_PER_MM)+'px;">' +
+      (s.holeMm>0 ? '<div class="holes">'+holes+'</div>' : '') +
+      '<div class="grid"></div>' +
+      catTab +
+      '<div style="position:absolute; left:0; top:'+s.holeMm+'mm; width:100%; height:calc(100% - '+s.holeMm+'mm);">'+
+        '<div style="position:absolute; left:'+s.marginMm+'mm; top:0; right:'+s.marginMm+'mm; bottom:'+s.marginMm+'mm; overflow:hidden;">'+sheet.html+'</div>' +
+      '</div></div>';
+  }
+
+  function buildPrintHtml(previewMode){
+    var s = state.settings;
+    var notes = printableNotes();
+    var sheets = buildSheets(notes, s);
+    if(sheets.length===0) return {html:'<div class="empty" style="padding:30px;"><p>対象のメモがありません</p></div>', count:0};
+    var html;
+    if(s.printMode==='a4'){
+      var perPage=4, pages=[];
+      for(var i=0;i<sheets.length;i+=perPage) pages.push(sheets.slice(i,i+perPage));
+      html = pages.map(function(pg){
+        var cells = pg.map(function(sh){ return '<div class="cell">'+sheetFrame(sh,s)+'</div>'; }).join('');
+        while(cells.split('class="cell"').length-1 < perPage){ cells += '<div class="cell" style="border-style:dashed; opacity:.3;"></div>'; }
+        return '<div class="a4sheet">'+cells+'</div>';
+      }).join('');
+    } else {
+      html = sheets.map(function(sh){ return sheetFrame(sh,s); }).join('');
+    }
+    return {html:html, count:sheets.length};
+  }
+
+  function updatePrintPageStyle(){
+    var s = state.settings;
+    var pageSize = s.printMode==='a4' ? '210mm 297mm' : (s.paperW+'mm '+s.paperH+'mm');
+    document.getElementById('pagestyle').textContent =
+      '@page{ size: '+pageSize+'; margin: 0mm; }' +
+      '@media print{ .printSheet{ width:'+s.paperW+'mm !important; height:'+s.paperH+'mm !important; zoom:1 !important; } .a4sheet{ zoom:1 !important; width:210mm !important; height:297mm !important; } }';
+  }
+
+  function renderPrint(){
+    var s = state.settings;
+    var catOpts = '<option value="all"'+(state.printCat==='all'?' selected':'')+'>すべてのメモ</option>' +
+      '<option value=""'+(state.printCat===''?' selected':'')+'>未分類のみ</option>' +
+      state.categories.slice().sort(LN.byOrder).map(function(c){ return '<option value="'+c.id+'"'+(state.printCat===c.id?' selected':'')+'>'+esc(c.name)+'のみ</option>'; }).join('');
+    return '<div class="field"><label for="printCat">印刷するメモ</label><select id="printCat">'+catOpts+'</select></div>' +
+      '<div class="field"><label for="printMode">印刷方法</label><select id="printMode">' +
+        '<option value="mini"'+(s.printMode==='mini'?' selected':'')+'>ミニ用紙にそのまま印刷</option>' +
+        '<option value="a4"'+(s.printMode==='a4'?' selected':'')+'>A4に割り付けて印刷(あとで裁断)</option>' +
+      '</select></div>' +
+      '<div class="section-title">用紙設定(横'+s.paperW+'×縦'+s.paperH+'mm・上端に穴)</div>' +
+      '<div class="row">' +
+        '<div class="field"><label for="paperW">幅(mm)</label><input type="number" id="paperW" value="'+s.paperW+'" min="30" max="300"></div>' +
+        '<div class="field"><label for="paperH">高さ(mm)</label><input type="number" id="paperH" value="'+s.paperH+'" min="30" max="400"></div>' +
+      '</div>' +
+      '<div class="row">' +
+        '<div class="field"><label for="holeMm">上端の穴よけ(mm)</label><input type="number" id="holeMm" value="'+s.holeMm+'" min="0" max="40"></div>' +
+        '<div class="field"><label for="marginMm">その他の余白(mm)</label><input type="number" id="marginMm" value="'+s.marginMm+'" min="0" max="20"></div>' +
+      '</div>' +
+      '<div class="field"><label for="fontPt">文字サイズ(pt)</label><input type="number" id="fontPt" value="'+s.fontPt+'" min="6" max="16" step="0.5"></div>' +
+      '<div class="hint" style="margin-bottom:8px;">白黒印刷でも見やすいよう、キー囲みやカテゴリは枠線で表現しています。印刷後に蛍光マーカーで書き込めるよう余白を確保しています。</div>' +
+      '<div class="section-title">プレビュー</div>' +
+      '<div class="printPreviewWrap" id="printPreviewWrap"><div id="printRoot"></div></div>' +
+      '<button class="btn primary block" onclick="App.doPrint()">'+ICONS.print+' 印刷する / PDFで保存</button>' +
+      '<div class="hint" style="margin-top:8px;">印刷ダイアログの保存先で「PDFに保存」を選ぶと、印刷せずファイルとして保存できます。長いフローは自動で複数枚に分割されます。</div>';
+  }
+
+  function refreshPreview(){
+    var built = buildPrintHtml();
+    document.getElementById('printRoot').innerHTML = built.html;
+    updatePrintPageStyle();
+    // scale sheets to fit screen using zoom (mm-absolute children need visual zoom, not just CSS width)
+    var wrap = document.getElementById('printPreviewWrap');
+    if(!wrap) return;
+    var availW = wrap.clientWidth || 320;
+    var s = state.settings;
+    if(s.printMode==='a4'){
+      var scale = Math.min(1, (availW-4) / (210*PX_PER_MM));
+      wrap.querySelectorAll('.a4sheet').forEach(function(el){ el.style.zoom = scale; });
+    } else {
+      var scale2 = Math.min(1, (availW-4) / (s.paperW*PX_PER_MM));
+      wrap.querySelectorAll('.printSheet').forEach(function(el){ el.style.zoom = scale2; });
+    }
+  }
+
+  function wirePrint(){
+    refreshPreview();
+    document.getElementById('printCat').addEventListener('change', function(){ state.printCat=this.value; refreshPreview(); });
+    document.getElementById('printMode').addEventListener('change', function(){ LN.saveSettings({printMode:this.value}).then(function(){ refreshPreview(); }); });
+    ['paperW','paperH','holeMm','marginMm','fontPt'].forEach(function(key){
+      document.getElementById(key).addEventListener('change', function(){
+        var patch={}; patch[key]=Number(this.value)||state.settings[key];
+        LN.saveSettings(patch).then(function(){ refreshPreview(); });
+      });
+    });
+  }
+
+  window.App = window.App || {};
+  Object.assign(window.App, {
+    renderPrint: renderPrint,
+    wirePrint: wirePrint,
+    doPrint: function(){ updatePrintPageStyle(); setTimeout(function(){ window.print(); }, 60); }
+  });
+})();
+</script>
+<script>
+(function(){
+  "use strict";
+  var LN = window.LN, ICONS = LN.ICONS;
+  var iconKeys = {list:'list', add:'add', categories:'tag', print:'print', settings:'settings'};
+  var tabLabels = {list:'一覧', add:'追加', categories:'カテゴリ', print:'印刷', settings:'設定'};
+  document.querySelectorAll('nav.tabbar button').forEach(function(btn){
+    var t = btn.dataset.tab;
+    btn.innerHTML = ICONS[iconKeys[t]] + '<span>' + tabLabels[t] + '</span>';
+  });
+  LN.initStorage();
+  LN.setupKeyboardAssist();
+})();
+</script>
+
+
+
+
+<script>
+// ---- Service Worker (オフラインで開けるように) ----
+if('serviceWorker' in navigator){
+  window.addEventListener('load', function(){
+    navigator.serviceWorker.register('sw.js').catch(function(){});
+  });
+}
+</script>
+<script>
+(function(){
+  "use strict";
+  // ---------------------------------------------------------------------------
+  // リーフノート : Googleドライブ同期
+  //
+  // 使うのは drive.file スコープだけ。このアプリが作ったファイル(leafnote-data.json)
+  // しか読み書きできないので、ドライブの他の中身には一切触れられない。
+  // 認証情報(クライアントID)は利用者自身のものを設定画面で登録してもらう。
+  // ---------------------------------------------------------------------------
+  var CFG_KEY   = 'leafnote_drive_v1';
+  var SCOPE     = 'https://www.googleapis.com/auth/drive.file';
+  var FILE_NAME = 'leafnote-data.json';
+  var GIS_SRC   = 'https://accounts.google.com/gsi/client';
+  var PUSH_DELAY = 5000;          // 編集が止まってからアップロードするまで
+  var TOMB_KEEP_DAYS = 180;       // 削除記録を持っておく期間
+
+  function loadCfg(){
+    try{ return Object.assign({clientId:'', fileId:'', lastSync:''}, JSON.parse(localStorage.getItem(CFG_KEY)||'{}')); }
+    catch(e){ return {clientId:'', fileId:'', lastSync:''}; }
+  }
+  function saveCfg(){ try{ localStorage.setItem(CFG_KEY, JSON.stringify(cfg)); }catch(e){} }
+
+  var cfg = loadCfg();
+  var token = null, tokenExp = 0, tokenClient = null, pending = [];
+  var gisPromise = null, pushTimer = null, syncing = false, dirty = false;
+  var statusText = cfg.clientId ? '未接続' : '未設定';
+  var installPrompt = null;
+
+  function LN(){ return window.LN; }
+  function ts(v){ if(!v) return 0; var t = Date.parse(v); return isNaN(t) ? 0 : t; }
+  function nowIso(){ return new Date().toISOString(); }
+  function inEditor(){ var s = LN() && LN().state; return !!s && (s.tab==='flow' || s.tab==='memo'); }
+
+  // ---------- 認証 ----------
+  function loadGis(){
+    if(gisPromise) return gisPromise;
+    gisPromise = new Promise(function(resolve, reject){
+      if(window.google && window.google.accounts && window.google.accounts.oauth2) return resolve();
+      var s = document.createElement('script');
+      s.src = GIS_SRC; s.async = true; s.defer = true;
+      s.onload = function(){ resolve(); };
+      s.onerror = function(){ gisPromise = null; reject(new Error('offline')); };
+      document.head.appendChild(s);
+    });
+    return gisPromise;
+  }
+
+  function settle(err, value){
+    var list = pending; pending = [];
+    list.forEach(function(p){ err ? p.reject(err) : p.resolve(value); });
+  }
+
+  function ensureToken(interactive){
+    if(!cfg.clientId) return Promise.reject(new Error('no-client-id'));
+    if(token && Date.now() < tokenExp - 60000) return Promise.resolve(token);
+    return loadGis().then(function(){
+      return new Promise(function(resolve, reject){
+        if(!tokenClient){
+          tokenClient = window.google.accounts.oauth2.initTokenClient({
+            client_id: cfg.clientId,
+            scope: SCOPE,
+            callback: function(resp){
+              if(resp && resp.access_token){
+                token = resp.access_token;
+                tokenExp = Date.now() + ((resp.expires_in || 3600) * 1000);
+                settle(null, token);
+              } else {
+                settle(new Error((resp && resp.error) || 'auth-failed'));
+              }
+            },
+            error_callback: function(err){ settle(new Error((err && err.type) || 'auth-error')); }
+          });
+        }
+        pending.push({resolve:resolve, reject:reject});
+        if(pending.length > 1) return;   // すでに要求中
+        try{ tokenClient.requestAccessToken({prompt: interactive ? 'consent' : ''}); }
+        catch(e){ settle(e); }
+      });
+    });
+  }
+
+  // ---------- Drive REST ----------
+  function api(url, opts, interactive){
+    return ensureToken(!!interactive).then(function(t){
+      opts = opts || {};
+      opts.headers = Object.assign({}, opts.headers || {}, {Authorization: 'Bearer ' + t});
+      return fetch(url, opts).then(function(r){
+        if(r.status === 401){
+          token = null;
+          return ensureToken(false).then(function(t2){
+            opts.headers.Authorization = 'Bearer ' + t2;
+            return fetch(url, opts);
+          });
+        }
+        return r;
+      });
+    }).then(function(r){
+      if(!r.ok) throw new Error('drive-' + r.status);
+      return r;
+    });
+  }
+
+  function findFile(interactive){
+    if(cfg.fileId) return Promise.resolve(cfg.fileId);
+    var q = encodeURIComponent("name='" + FILE_NAME + "' and trashed=false");
+    return api('https://www.googleapis.com/drive/v3/files?spaces=drive&pageSize=10&orderBy=modifiedTime desc&q=' + q + '&fields=files(id,modifiedTime)', null, interactive)
+      .then(function(r){ return r.json(); })
+      .then(function(j){
+        if(j.files && j.files.length){ cfg.fileId = j.files[0].id; saveCfg(); return cfg.fileId; }
+        return null;
+      });
+  }
+
+  function createFile(text){
+    var boundary = 'leafnote' + Date.now();
+    var meta = {name: FILE_NAME, mimeType: 'application/json', description: 'リーフノートのメモデータ'};
+    var body = '--' + boundary + '\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n' +
+               JSON.stringify(meta) + '\r\n--' + boundary +
+               '\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n' + text + '\r\n--' + boundary + '--';
+    return api('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id', {
+      method: 'POST',
+      headers: {'Content-Type': 'multipart/related; boundary=' + boundary},
+      body: body
+    }).then(function(r){ return r.json(); })
+      .then(function(j){ cfg.fileId = j.id; saveCfg(); return j.id; });
+  }
+
+  function downloadRemote(interactive){
+    return findFile(interactive).then(function(id){
+      if(!id) return null;
+      return api('https://www.googleapis.com/drive/v3/files/' + id + '?alt=media')
+        .then(function(r){ return r.json(); })
+        .catch(function(e){
+          if(String(e.message).indexOf('404') >= 0){ cfg.fileId = ''; saveCfg(); return null; }
+          throw e;
+        });
+    });
+  }
+
+  function uploadPayload(text){
+    return findFile(false).then(function(id){
+      if(!id) return createFile(text);
+      return api('https://www.googleapis.com/upload/drive/v3/files/' + id + '?uploadType=media', {
+        method: 'PATCH',
+        headers: {'Content-Type': 'application/json; charset=UTF-8'},
+        body: text
+      }).then(function(){ return id; });
+    });
+  }
+
+  // ---------- データのマージ ----------
+  function pruneDeleted(map){
+    var cutoff = Date.now() - TOMB_KEEP_DAYS * 86400000, out = {};
+    Object.keys(map || {}).forEach(function(k){ if(ts(map[k]) >= cutoff) out[k] = map[k]; });
+    return out;
+  }
+
+  // メモ・カテゴリは1件ずつ updatedAt の新しいほうを採用する。
+  // 削除は deleted に日時が残っていて、その日時が更新日時以降なら消えたまま。
+  function mergePayloads(local, remote){
+    if(!remote) return local;
+    if(!local) return remote;
+    var deleted = Object.assign({}, remote.deleted || {});
+    var ld = local.deleted || {};
+    Object.keys(ld).forEach(function(k){ if(ts(ld[k]) > ts(deleted[k])) deleted[k] = ld[k]; });
+
+    function mergeList(a, b){
+      var map = {};
+      (a || []).concat(b || []).forEach(function(item){
+        if(!item || !item.id) return;
+        var cur = map[item.id];
+        if(!cur || ts(item.updatedAt) > ts(cur.updatedAt)) map[item.id] = item;
+      });
+      return Object.keys(map).filter(function(id){
+        return !(deleted[id] && ts(deleted[id]) >= ts(map[id].updatedAt));
+      }).map(function(id){ return map[id]; });
+    }
+
+    var ls = local.settings || {}, rs = remote.settings || {};
+    return {
+      app: 'leafnote', version: 1, updatedAt: nowIso(),
+      notes: mergeList(local.notes, remote.notes),
+      categories: mergeList(local.categories, remote.categories),
+      settings: ts(ls.updatedAt) >= ts(rs.updatedAt) ? ls : rs,
+      deleted: pruneDeleted(deleted)
+    };
+  }
+
+  function localPayload(){
+    var s = LN().state;
+    return {
+      app: 'leafnote', version: 1, updatedAt: nowIso(),
+      notes: s.notes || [], categories: s.categories || [],
+      settings: s.settings || {}, deleted: LN().getTombstones()
+    };
+  }
+
+  function applyMerged(m){
+    var ln = LN(), s = ln.state;
+    s.notes = m.notes || [];
+    s.categories = m.categories || [];
+    s.settings = Object.assign({}, ln.DEFAULT_SETTINGS, m.settings || {});
+    ln.setTombstones(m.deleted || {});
+    ln.saveLocalQuiet();
+    if(s.ready && window.App && !inEditor()) window.App.renderCurrentTab();
+  }
+
+  // ---------- 同期 ----------
+  function errText(e){
+    var m = String((e && e.message) || e);
+    if(m === 'no-client-id') return 'クライアントIDが未設定です';
+    if(m === 'offline') return 'ネットにつながっていません';
+    if(m.indexOf('auth') >= 0 || m === 'popup_closed' || m === 'popup_failed_to_open') return 'Googleへの接続が必要です';
+    if(m.indexOf('drive-401') >= 0 || m.indexOf('drive-403') >= 0) return 'アクセスが許可されていません';
+    if(m.indexOf('drive-') >= 0) return 'ドライブでエラー(' + m.replace('drive-','') + ')';
+    return '同期できませんでした';
+  }
+
+  function setStatus(t){ statusText = t; refreshCard(); }
+
+  function syncNow(interactive){
+    if(!cfg.clientId){ setStatus('未設定'); return Promise.resolve(); }
+    if(!navigator.onLine){ setStatus('オフライン(つながったら同期します)'); return Promise.resolve(); }
+    if(syncing) return Promise.resolve();
+    syncing = true; dirty = false; setStatus('同期中…');
+    return downloadRemote(interactive).then(function(remote){
+      var merged = mergePayloads(localPayload(), remote);
+      if(!inEditor()) applyMerged(merged); else dirty = true;
+      return uploadPayload(JSON.stringify(merged));
+    }).then(function(){
+      cfg.lastSync = nowIso(); saveCfg();
+      setStatus('同期済み');
+      if(interactive && LN().showToast) LN().showToast('Googleドライブと同期しました');
+    }).catch(function(e){
+      dirty = true;
+      setStatus(errText(e));
+      if(interactive && LN().showToast) LN().showToast(errText(e), 'error');
+    }).then(function(){ syncing = false; });
+  }
+
+  function schedulePush(){
+    if(!cfg.clientId) return;
+    dirty = true;
+    clearTimeout(pushTimer);
+    pushTimer = setTimeout(function(){ syncNow(false); }, PUSH_DELAY);
+  }
+
+  // ---------- 設定画面 ----------
+  function esc(s){ return LN() ? LN().esc(s) : String(s||''); }
+
+  function renderSettingsCard(){
+    var connected = !!cfg.clientId;
+    var last = cfg.lastSync ? new Date(cfg.lastSync).toLocaleString('ja-JP', {month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit'}) : 'まだ同期していません';
+    var html = '<div class="section-title">Googleドライブ同期</div><div class="card" id="driveCard">';
+    html += '<div class="row" style="justify-content:space-between; align-items:center; gap:10px;">' +
+              '<div><div style="font-weight:700;">' + esc(statusText) + '</div>' +
+              '<div class="hint" style="margin:2px 0 0;">最終同期: ' + esc(last) + '</div></div>' +
+            '</div>';
+    if(connected){
+      html += '<div class="row" style="margin-top:12px;">' +
+                '<button class="btn primary block" onclick="LNSync.syncNow(true)">今すぐ同期</button>' +
+                '<button class="btn block" onclick="LNSync.disconnect()">接続を解除</button></div>' +
+              '<p class="hint" style="margin:10px 0 0;">メモを書き換えると自動でドライブに保存され、アプリを開いたときに読み込みます。</p>';
+    } else {
+      html += '<p class="hint" style="margin:10px 0 12px;">Googleドライブにつなぐと、スマホでもパソコンでも同じメモが使えます。' +
+              'つなぐには自分のGoogleでクライアントIDを1回だけ作ります(手順書を見てください)。</p>' +
+              '<div class="field"><label for="driveClientId">クライアントID</label>' +
+              '<input type="text" id="driveClientId" placeholder="000000-xxxxx.apps.googleusercontent.com" autocapitalize="off" autocorrect="off" spellcheck="false"></div>' +
+              '<button class="btn primary block" onclick="LNSync.connect()">Googleドライブに接続</button>';
+    }
+    html += '</div>';
+    if(installPrompt){
+      html += '<div class="section-title">ホーム画面に追加</div><div class="card">' +
+              '<p class="hint" style="margin:0 0 12px;">アプリのように起動できるようになります。</p>' +
+              '<button class="btn block" onclick="LNSync.install()">ホーム画面に追加</button></div>';
+    }
+    return html;
+  }
+
+  function refreshCard(){
+    var card = document.getElementById('driveCard');
+    if(!card || !card.parentNode) return;
+    var s = LN() && LN().state;
+    if(!s || s.tab !== 'settings') return;
+    if(window.App && window.App.renderCurrentTab) window.App.renderCurrentTab();
+  }
+
+  var Sync = {
+    mergePayloads: mergePayloads,
+    schedulePush: schedulePush,
+    syncNow: syncNow,
+    renderSettingsCard: renderSettingsCard,
+    isConfigured: function(){ return !!cfg.clientId; },
+    status: function(){ return statusText; },
+    connect: function(){
+      var el = document.getElementById('driveClientId');
+      var id = (el && el.value || '').trim();
+      if(!/\.apps\.googleusercontent\.com$/.test(id)){
+        LN().showToast('クライアントIDの形式が違うようです', 'error'); return;
+      }
+      cfg.clientId = id; cfg.fileId = ''; saveCfg();
+      tokenClient = null; token = null;
+      setStatus('接続中…');
+      ensureToken(true).then(function(){ return syncNow(true); })
+        .catch(function(e){ setStatus(errText(e)); LN().showToast(errText(e), 'error'); });
+    },
+    disconnect: function(){
+      LN().confirm('Googleドライブとの接続を解除します。ドライブ上のファイルは残ります。よろしいですか?').then(function(ok){
+        if(!ok) return;
+        try{ if(token && window.google) window.google.accounts.oauth2.revoke(token, function(){}); }catch(e){}
+        cfg = {clientId:'', fileId:'', lastSync:''}; saveCfg();
+        token = null; tokenClient = null;
+        setStatus('未設定');
+        LN().showToast('接続を解除しました');
+      });
+    },
+    install: function(){
+      if(!installPrompt) return;
+      installPrompt.prompt();
+      installPrompt.userChoice.then(function(){ installPrompt = null; refreshCard(); });
+    }
+  };
+  window.LNSync = Sync;
+
+  window.addEventListener('beforeinstallprompt', function(e){
+    e.preventDefault(); installPrompt = e; refreshCard();
+  });
+  window.addEventListener('online', function(){ if(dirty) syncNow(false); });
+  document.addEventListener('visibilitychange', function(){
+    if(document.visibilityState === 'visible' && cfg.clientId && !inEditor()) syncNow(false);
+    if(document.visibilityState === 'hidden' && dirty) syncNow(false);
+  });
+
+  // アプリの起動が終わったら1回だけ同期する
+  (function waitReady(tries){
+    if(window.LN && window.LN.state && window.LN.state.ready){
+      if(cfg.clientId) syncNow(false);
+      return;
+    }
+    if(tries > 80) return;
+    setTimeout(function(){ waitReady(tries + 1); }, 200);
+  })(0);
+})();
+</script>
+</body>
+</html>
