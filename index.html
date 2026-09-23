@@ -46,8 +46,12 @@
     --shadow:0 1px 3px rgba(0,0,0,.45), 0 1px 2px rgba(0,0,0,.3);
   }
   *{box-sizing:border-box;}
-  html,body{height:100%; margin:0;}
-  body{background:var(--paper); color:var(--ink); font-family:var(--font-body); font-size:15px; line-height:1.6; -webkit-tap-highlight-color:transparent; overscroll-behavior:none;}
+  /* overscroll-behavior は html に書かないとブラウザの「引っ張って更新」に効かない。
+     ボックスを作る下フリックが更新と誤判定されるのを止めるため、両方に指定する。 */
+  html,body{height:100%; margin:0; overscroll-behavior:none;}
+  body{background:var(--paper); color:var(--ink); font-family:var(--font-body); font-size:15px; line-height:1.6; -webkit-tap-highlight-color:transparent;}
+  /* フロー編集中はページ自体を動かさない(引っ張って更新の入口をふさぐ) */
+  body.canvasLock{position:fixed; inset:0; width:100%; overflow:hidden;}
   h1,h2,h3{font-family:var(--font-display); text-wrap:balance; margin:0;}
   button{font-family:inherit; font-size:inherit; color:inherit;}
   input,select,textarea{font-family:inherit; font-size:inherit; color:inherit;}
@@ -898,6 +902,8 @@
     var topbar = document.getElementById('topbar');
     if(!state.ready){ setMain(false); view.innerHTML = '<div class="empty"><p>読み込み中…</p></div>'; return; }
 
+    // フロー編集を抜けるときはページのロックを外す(開くときに openFlowEditor が付け直す)
+    document.body.classList.remove('canvasLock');
     if(state.tab==='flow' || state.tab==='memo'){
       // editor views manage their own topbar via App.renderTopbarFor*
     } else {
@@ -1305,6 +1311,7 @@
       return '<option value="'+c.id+'"'+(c.id===(FE.note.categoryId||'')?' selected':'')+'>'+esc(c.name)+'</option>';
     }).join('');
 
+    document.body.classList.add('canvasLock');
     var view = document.getElementById('view');
     view.className='flush';
     view.innerHTML =
@@ -1875,6 +1882,12 @@
   function wireViewportPan(){
     var vp = document.getElementById('canvasViewport');
     var panning=false, sx=0, sy=0, ox=0, oy=0;
+    // 紙の上の指の動きはすべてアプリが受け取る。これが無いと、下フリックが
+    // ブラウザの「引っ張って更新」に取られてしまう。
+    vp.addEventListener('touchmove', function(ev){
+      if(ev.target && ev.target.closest && ev.target.closest('textarea,input')) return; // 文字の選択は邪魔しない
+      if(ev.cancelable) ev.preventDefault();
+    }, {passive:false});
     vp.addEventListener('pointerdown', function(ev){
       if(ev.target.closest('.flowNode') || ev.target.closest('.flowArrowLabel') || ev.target.closest('.flowAnnotation') || ev.target.closest('.flowDivider') || ev.target.closest('.dividerHandle') || ev.target.closest('.nodeBtn')) return;
       // Touching bare paper deselects, which also puts the controls away.
@@ -2612,15 +2625,38 @@ if('serviceWorker' in navigator){
   var PUSH_DELAY = 5000;          // 編集が止まってからアップロードするまで
   var TOMB_KEEP_DAYS = 180;       // 削除記録を持っておく期間
 
+  var TOK_KEY = 'leafnote_drive_tok_v1';
+
   function loadCfg(){
-    try{ return Object.assign({clientId:'', fileId:'', lastSync:''}, JSON.parse(localStorage.getItem(CFG_KEY)||'{}')); }
-    catch(e){ return {clientId:'', fileId:'', lastSync:''}; }
+    // autoConnect は既定で切ってある。入れておくと、有効期限が切れたあとの起動で
+    // Googleの画面が勝手に開くため。切ってあるときは「同期」を押したときだけ開く。
+    try{ return Object.assign({clientId:'', fileId:'', lastSync:'', granted:false, autoConnect:false}, JSON.parse(localStorage.getItem(CFG_KEY)||'{}')); }
+    catch(e){ return {clientId:'', fileId:'', lastSync:'', granted:false, autoConnect:false}; }
   }
   function saveCfg(){ try{ localStorage.setItem(CFG_KEY, JSON.stringify(cfg)); }catch(e){} }
 
+  // アクセストークンは1時間ほど有効。取っておけば、その間にアプリを開き直しても
+  // Googleの画面は出ない。(静的なサイトでは更新トークンは使えないので、これが上限)
+  function loadToken(){
+    try{
+      var t = JSON.parse(localStorage.getItem(TOK_KEY)||'null');
+      if(t && t.value && t.exp > Date.now() + 120000) return t;
+    }catch(e){}
+    return null;
+  }
+  function saveToken(value, expiresInSec){
+    try{ localStorage.setItem(TOK_KEY, JSON.stringify({value:value, exp: Date.now() + (expiresInSec||3600)*1000})); }catch(e){}
+  }
+  function clearToken(){ try{ localStorage.removeItem(TOK_KEY); }catch(e){} }
+
   var cfg = loadCfg();
-  var token = null, tokenExp = 0, tokenClient = null, pending = [];
+  var saved = loadToken();
+  var token = saved ? saved.value : null, tokenExp = saved ? saved.exp : 0;
+  var tokenClient = null, pending = [];
   var gisPromise = null, pushTimer = null, syncing = false, dirty = false;
+  // 利用者がボタンを押して始めた同期のあいだは、その途中の通信もすべて
+  // 「利用者が承知のうえ」として扱う(必要ならGoogleの画面を出してよい)
+  var interactiveRun = false;
   var statusText = cfg.clientId ? '未接続' : '未設定';
   var installPrompt = null;
 
@@ -2648,9 +2684,12 @@ if('serviceWorker' in navigator){
     list.forEach(function(p){ err ? p.reject(err) : p.resolve(value); });
   }
 
+  // interactive = 利用者がボタンを押した流れかどうか。押していないのに Google の画面を
+  // 開くと、起動のたびに認証が挟まって煩わしいので、そのときは黙って見送る。
   function ensureToken(interactive){
     if(!cfg.clientId) return Promise.reject(new Error('no-client-id'));
     if(token && Date.now() < tokenExp - 60000) return Promise.resolve(token);
+    if(!interactive && !interactiveRun && !cfg.autoConnect) return Promise.reject(new Error('needs-tap'));
     return loadGis().then(function(){
       return new Promise(function(resolve, reject){
         if(!tokenClient){
@@ -2661,6 +2700,8 @@ if('serviceWorker' in navigator){
               if(resp && resp.access_token){
                 token = resp.access_token;
                 tokenExp = Date.now() + ((resp.expires_in || 3600) * 1000);
+                saveToken(token, resp.expires_in);
+                if(!cfg.granted){ cfg.granted = true; saveCfg(); }
                 settle(null, token);
               } else {
                 settle(new Error((resp && resp.error) || 'auth-failed'));
@@ -2671,7 +2712,10 @@ if('serviceWorker' in navigator){
         }
         pending.push({resolve:resolve, reject:reject});
         if(pending.length > 1) return;   // すでに要求中
-        try{ tokenClient.requestAccessToken({prompt: interactive ? 'consent' : ''}); }
+        // 許可済みなら prompt を空にする。こうすると、Googleにログインしたままの端末では
+        // 選択画面を出さずに取り直せる。初回だけ同意画面を出す。
+        var promptMode = cfg.granted ? '' : 'consent';
+        try{ tokenClient.requestAccessToken({prompt: promptMode}); }
         catch(e){ settle(e); }
       });
     });
@@ -2684,8 +2728,8 @@ if('serviceWorker' in navigator){
       opts.headers = Object.assign({}, opts.headers || {}, {Authorization: 'Bearer ' + t});
       return fetch(url, opts).then(function(r){
         if(r.status === 401){
-          token = null;
-          return ensureToken(false).then(function(t2){
+          token = null; tokenExp = 0; clearToken();
+          return ensureToken(!!interactive).then(function(t2){
             opts.headers.Authorization = 'Bearer ' + t2;
             return fetch(url, opts);
           });
@@ -2807,6 +2851,7 @@ if('serviceWorker' in navigator){
   function errText(e){
     var m = String((e && e.message) || e);
     if(m === 'no-client-id') return 'クライアントIDが未設定です';
+    if(m === 'needs-tap') return '「今すぐ同期」で送れます';
     if(m === 'offline') return 'ネットにつながっていません';
     if(m.indexOf('auth') >= 0 || m === 'popup_closed' || m === 'popup_failed_to_open') return 'Googleへの接続が必要です';
     if(m.indexOf('drive-401') >= 0 || m.indexOf('drive-403') >= 0) return 'アクセスが許可されていません';
@@ -2814,13 +2859,18 @@ if('serviceWorker' in navigator){
     return '同期できませんでした';
   }
 
-  function setStatus(t){ statusText = t; refreshCard(); }
+  function setStatus(t){ statusText = t; refreshCard(); updateBanner(); }
 
   function syncNow(interactive){
     if(!cfg.clientId){ setStatus('未設定'); return Promise.resolve(); }
     if(!navigator.onLine){ setStatus('オフライン(つながったら同期します)'); return Promise.resolve(); }
+    // 自分から画面を開かない設定のときは、有効なトークンが残っているときだけ動く
+    if(!interactive && !cfg.autoConnect && !(token && Date.now() < tokenExp - 60000)){
+      setStatus(dirty ? '送れていない変更があります' : '同期するにはタップ');
+      return Promise.resolve();
+    }
     if(syncing) return Promise.resolve();
-    syncing = true; dirty = false; setStatus('同期中…');
+    syncing = true; dirty = false; interactiveRun = !!interactive; setStatus('同期中…');
     return downloadRemote(interactive).then(function(remote){
       var merged = mergePayloads(localPayload(), remote);
       if(!inEditor()) applyMerged(merged); else dirty = true;
@@ -2833,7 +2883,7 @@ if('serviceWorker' in navigator){
       dirty = true;
       setStatus(errText(e));
       if(interactive && LN().showToast) LN().showToast(errText(e), 'error');
-    }).then(function(){ syncing = false; });
+    }).then(function(){ syncing = false; interactiveRun = false; updateBanner(); });
   }
 
   function schedulePush(){
@@ -2855,10 +2905,20 @@ if('serviceWorker' in navigator){
               '<div class="hint" style="margin:2px 0 0;">最終同期: ' + esc(last) + '</div></div>' +
             '</div>';
     if(connected){
+      var live = token && Date.now() < tokenExp - 60000;
       html += '<div class="row" style="margin-top:12px;">' +
                 '<button class="btn primary block" onclick="LNSync.syncNow(true)">今すぐ同期</button>' +
                 '<button class="btn block" onclick="LNSync.disconnect()">接続を解除</button></div>' +
-              '<p class="hint" style="margin:10px 0 0;">メモを書き換えると自動でドライブに保存され、アプリを開いたときに読み込みます。</p>';
+              '<p class="hint" style="margin:10px 0 0;">' +
+                (live ? 'いまはつながっています。書き換えると自動でドライブに保存されます。'
+                      : 'Googleの許可は1時間ほどで切れます。切れたあとは「今すぐ同期」を押したときにつなぎ直します。') +
+              '</p>' +
+              '<label class="row" style="margin-top:12px; align-items:flex-start; gap:10px;">' +
+                '<input type="checkbox" id="driveAuto"' + (cfg.autoConnect ? ' checked' : '') +
+                ' onchange="LNSync.setAutoConnect(this.checked)" style="margin-top:3px; flex:none;">' +
+                '<span style="font-size:13px;">アプリを開いたときに自動でつなぎ直す' +
+                '<span class="hint" style="display:block; margin:2px 0 0;">Googleの画面が出ることがあります。切っておくと、起動のじゃまになりません。</span></span>' +
+              '</label>';
     } else {
       html += '<p class="hint" style="margin:10px 0 12px;">Googleドライブにつなぐと、スマホでもパソコンでも同じメモが使えます。' +
               'つなぐには自分のGoogleでクライアントIDを1回だけ作ります(手順書を見てください)。</p>' +
@@ -2873,6 +2933,28 @@ if('serviceWorker' in navigator){
               '<button class="btn block" onclick="LNSync.install()">ホーム画面に追加</button></div>';
     }
     return html;
+  }
+
+  // 未送信の変更があるのに勝手にGoogleの画面を開かない、という約束の代わりに、
+  // 画面の下に小さく「タップして同期」を出す。押すのは利用者。
+  function updateBanner(){
+    var el = document.getElementById('lnSyncBar');
+    var show = !!cfg.clientId && dirty && !syncing && !inEditor() && navigator.onLine;
+    if(!show){ if(el) el.remove(); return; }
+    if(!el){
+      el = document.createElement('button');
+      el.id = 'lnSyncBar';
+      el.type = 'button';
+      el.setAttribute('style',
+        'position:fixed; left:50%; transform:translateX(-50%); z-index:40;' +
+        'bottom:calc(64px + env(safe-area-inset-bottom,0px));' +
+        'border:1px solid var(--line); background:var(--surface); color:var(--ink);' +
+        'border-radius:999px; padding:8px 16px; font-size:13px; font-weight:700;' +
+        'box-shadow:var(--shadow); font-family:inherit;');
+      el.onclick = function(){ syncNow(true); };
+      document.body.appendChild(el);
+    }
+    el.textContent = '↑ タップしてドライブに保存';
   }
 
   function refreshCard(){
@@ -2890,6 +2972,8 @@ if('serviceWorker' in navigator){
     renderSettingsCard: renderSettingsCard,
     isConfigured: function(){ return !!cfg.clientId; },
     status: function(){ return statusText; },
+    hasLiveToken: function(){ return !!(token && Date.now() < tokenExp - 60000); },
+    setAutoConnect: function(on){ cfg.autoConnect = !!on; saveCfg(); },
     connect: function(){
       var el = document.getElementById('driveClientId');
       var id = (el && el.value || '').trim();
@@ -2906,8 +2990,9 @@ if('serviceWorker' in navigator){
       LN().confirm('Googleドライブとの接続を解除します。ドライブ上のファイルは残ります。よろしいですか?').then(function(ok){
         if(!ok) return;
         try{ if(token && window.google) window.google.accounts.oauth2.revoke(token, function(){}); }catch(e){}
-        cfg = {clientId:'', fileId:'', lastSync:''}; saveCfg();
-        token = null; tokenClient = null;
+        cfg = {clientId:'', fileId:'', lastSync:'', granted:false, autoConnect:false}; saveCfg();
+        clearToken();
+        token = null; tokenExp = 0; tokenClient = null;
         setStatus('未設定');
         LN().showToast('接続を解除しました');
       });
@@ -2925,14 +3010,19 @@ if('serviceWorker' in navigator){
   });
   window.addEventListener('online', function(){ if(dirty) syncNow(false); });
   document.addEventListener('visibilitychange', function(){
-    if(document.visibilityState === 'visible' && cfg.clientId && !inEditor()) syncNow(false);
+    if(!cfg.clientId) return;
+    if(document.visibilityState === 'visible' && !inEditor()) syncNow(false);
     if(document.visibilityState === 'hidden' && dirty) syncNow(false);
   });
 
   // アプリの起動が終わったら1回だけ同期する
   (function waitReady(tries){
     if(window.LN && window.LN.state && window.LN.state.ready){
-      if(cfg.clientId) syncNow(false);
+      if(cfg.clientId){
+        syncNow(false);
+        // 画面を行き来しても「タップして同期」の出し入れが追いつくように見張る
+        setInterval(updateBanner, 2500);
+      }
       return;
     }
     if(tries > 80) return;
